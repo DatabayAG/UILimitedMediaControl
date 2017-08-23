@@ -1,0 +1,19 @@
+//
+// Copyright (c) 2017 Institut fuer Lern-Innovation, Friedrich-Alexander-Universitaet Erlangen-Nuernberg
+// GPLv3, see LICENSE
+//
+// @author Fred Neumann <fred.neumann@fau.de>
+// @version $Id$
+//
+
+<!-- language file start -->
+player_plugin_not_active#:#Das Plugin "PCLimitedMediaPlayer" ist nicht aktiviert!
+not_for_dynamic_test#:#Die Anpassung beschränkter Medien ist für fortlaufende Tests nicht verfügbar.
+media_limits#:#Beschränkte Medienwiedergaben
+adapted_media_limits#:#Angepasste Wiedergaben
+new_adaptation#:#Neue Anpassung
+medium#:#Medium
+all_media#:#Alle Medien
+all_participants#:#Alle Teilnehmer
+limit_standard#:#Wiedergaben (Standard)
+limit_custom#:#Wiedergaben (angepasst)
