@@ -12,8 +12,10 @@ not_for_dynamic_test#:#Die Anpassung beschränkter Medien ist für fortlaufende 
 media_limits#:#Beschränkte Medienwiedergaben
 adapted_media_limits#:#Angepasste Wiedergaben
 new_adaptation#:#Neue Anpassung
+question#:#Frage
 medium#:#Medium
 all_media#:#Alle Medien
 all_participants#:#Alle Teilnehmer
+limit#:#Wiedergaben
 limit_standard#:#Wiedergaben (Standard)
 limit_custom#:#Wiedergaben (angepasst)

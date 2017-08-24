@@ -92,13 +92,13 @@ class ilUILimitedMediaControlPlugin extends ilUserInterfaceHookPlugin
 
     /**
      * Get the limits defined for a test
-     * @param   int   $a_parent_id    obj_id of the test object
+     * @param   int   $a_obj_id    obj_id of the test object
      * @return  ilLimitedMediaPlayerLimits[]
      */
-    public function getTestLimits($a_parent_id)
+    public function getTestLimits($a_obj_id)
     {
         require_once("Customizing/global/plugins/Services/COPage/PCLimitedMediaPlayer/classes/class.ilLimitedMediaPlayerLimits.php");
-        return ilLimitedMediaPlayerLimits::getTestLimits($a_parent_id);
+        return ilLimitedMediaPlayerLimits::getTestLimits($a_obj_id);
     }
 }
 

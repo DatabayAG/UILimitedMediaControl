@@ -77,6 +77,7 @@ class ilUILimitedMediaControlGUI
 				}
                 break;
 			case "saveLimit":
+            case "deleteLimit":
 				$this->$cmd();
 				break;
 
