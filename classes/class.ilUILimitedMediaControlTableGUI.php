@@ -45,7 +45,7 @@ class ilUILimitedMediaControlTableGUI extends ilTable2GUI
         $this->setTitle($this->plugin->txt('adapted_media_limits'));
         $this->setStyle('table', 'fullwidth');
         $this->addColumn($this->lng->txt("login"));
-        $this->addColumn($this->lng->txt("fullname"));
+        $this->addColumn($this->lng->txt("name"));
         $this->addColumn($this->plugin->txt("question"));
         $this->addColumn($this->plugin->txt("medium"));
         $this->addColumn($this->plugin->txt('limit'));

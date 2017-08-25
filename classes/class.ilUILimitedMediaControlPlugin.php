@@ -100,6 +100,18 @@ class ilUILimitedMediaControlPlugin extends ilUserInterfaceHookPlugin
         require_once("Customizing/global/plugins/Services/COPage/PCLimitedMediaPlayer/classes/class.ilLimitedMediaPlayerLimits.php");
         return ilLimitedMediaPlayerLimits::getTestLimits($a_obj_id);
     }
+
+
+    /**
+     * Get the limited media on a page
+     * @param   array   $a_page_id
+     * @return  array   [['mob_id' => int, 'title' => string, 'limit' => int], ...]
+     */
+    public function getLimitedMedia($a_page_id, $a_mob_id = null)
+    {
+        require_once("Customizing/global/plugins/Services/COPage/PCLimitedMediaPlayer/classes/class.ilLimitedMediaPlayerPlugin.php");
+        return ilLimitedMediaPlayerPlugin::getLimitedMedia($a_page_id, $a_mob_id);
+    }
 }
 
 ?>

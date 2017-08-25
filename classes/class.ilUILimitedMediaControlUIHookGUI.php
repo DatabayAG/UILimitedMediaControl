@@ -25,7 +25,7 @@ class ilUILimitedMediaControlUIHookGUI extends ilUIHookPluginGUI
 		global $ilCtrl, $ilTabs;
 
 		// add sub tab only if player is active
-		if ($this->plugin_object->checkPlayerActive())
+		if (!$this->plugin_object->checkPlayerActive())
         {
             return;
         }

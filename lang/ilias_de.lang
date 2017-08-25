@@ -19,3 +19,5 @@ all_participants#:#Alle Teilnehmer
 limit#:#Wiedergaben
 limit_standard#:#Wiedergaben (Standard)
 limit_custom#:#Wiedergaben (angepasst)
+select_participant#:#Teilnehmer auswählen
+participant#:#Teilnehmer

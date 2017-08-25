@@ -19,6 +19,9 @@ class ilUILimitedMediaControlGUI
 	/** @var ilTemplate $tpl */
 	protected $tpl;
 
+	/** @var  ilLanguage $lng */
+	protected $lng;
+
 	/** @var ilUILimitedMediaControlPlugin $plugin */
 	protected $plugin;
 
@@ -35,6 +38,7 @@ class ilUILimitedMediaControlGUI
 
 		$this->ctrl = $ilCtrl;
 		$this->tpl = $tpl;
+		$this->lng = $lng;
 
 		$lng->loadLanguageModule('assessment');
 
@@ -151,6 +155,86 @@ class ilUILimitedMediaControlGUI
 		$this->tpl->show();
 	}
 
+    /**
+     * Select the participant to adapt
+     */
+	protected function selectParticipant()
+    {
+        global $ilDB;
+
+        require_once('Modules/Test/classes/class.ilTestParticipantData.php');
+        $pdata = new ilTestParticipantData($ilDB, $this->lng);
+        $pdata->load($this->testObj->getTestId());
+
+        require_once('Services/Form/classes/class.ilPropertyFormGUI.php');
+        $form = new ilPropertyFormGUI();
+        $form->setFormAction($this->ctrl->getFormAction($this, 'showAdaptations'));
+        $form->setTitle($this->plugin->txt('select_participant'));
+
+        $options = array('0' => $this->plugin->txt('all_participants'));
+        foreach ($pdata->getActiveIds() as $active_id)
+        {
+            $options['active_id'] = $pdata->getFormatedFullnameByActiveId($active_id);
+        }
+
+        $sel = new ilSelectInputGUI($this->plugin->txt('participant'), 'active_id');
+        $sel->setOptions($options);
+        $form->addItem($sel);
+
+        $form->addCommandButton('selectMedium', $this->lng->txt('continue'));
+        $form->addCommandButton('showAdaptations', $this->lng->txt('cancel'));
+
+        $this->tpl->setContent($form->getHTML());
+        $this->tpl->show();
+    }
+
+    /**
+     * Select the Medium
+     */
+    protected function selectMedium()
+    {
+        global $ilDB;
+
+        require_once('Modules/Test/classes/class.ilTestParticipantData.php');
+        $pdata = new ilTestParticipantData($ilDB, $this->lng);
+        $pdata->load($this->testObj->getTestId());
+
+        $active_id = (int) $_GET['active_id'];
+
+        $questions = array();
+        if ($active_id == 0 && $this->testObj->isRandomTest())
+        {
+            $this->ctrl->setParameter($this, 'user_id', 0);
+            $this->ctrl->setParameter($this, 'qst_mob', '');
+            $this->ctrl->redirect($this, 'editLimit');
+        }
+
+
+        if ($this->testObj->isFixedTest())
+        {
+            $questions = $this->testObj->getQuestionTitlesAndIndexes();
+        }
+        elseif ($this->testObj->isRandomTest())
+        {
+            foreach($this->testObj->getQuestionsOfTest($active_id) as $qdata)
+            {
+                $questions[$qdata['question_fi']] = assQuestion::_getQuestionTitle($qdata['question_fi']);
+            }
+        }
+
+        foreach ($questions as $question_id => $title)
+        {
+
+        }
+
+        require_once('Services/Form/classes/class.ilPropertyFormGUI.php');
+        $form = new ilPropertyFormGUI();
+        $form->setFormAction($this->ctrl->getFormAction($this, 'showAdaptations'));
+        $form->setTitle($this->plugin->txt('select_participant'));
+
+
+
+    }
 
 	/**
 	 * Set the Toolbar
@@ -158,12 +242,12 @@ class ilUILimitedMediaControlGUI
 	protected function setToolbar()
 	{
 		/** @var ilToolbarGUI $ilToolbar */
-		global $ilToolbar, $lng;
+		global $ilToolbar;
 
 		require_once 'Services/UIComponent/Button/classes/class.ilLinkButton.php';
 		$button = ilLinkButton::getInstance();
 		$button->setUrl($this->ctrl->getLinkTarget($this, 'selectParticipant'));
-		$button->setCaption('new_adaptation');
+		$button->setCaption($this->plugin->txt('new_adaptation'), false);
 		$button->getOmitPreventDoubleSubmission();
 		$ilToolbar->addButtonInstance($button);
     }
