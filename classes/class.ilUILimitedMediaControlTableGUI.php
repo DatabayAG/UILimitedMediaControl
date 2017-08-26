@@ -6,7 +6,7 @@ include_once('./Services/Table/classes/class.ilTable2GUI.php');
 class ilUILimitedMediaControlTableGUI extends ilTable2GUI
 {
 	/**
-	 * @var object $parent_obj
+	 * @var ilUILimitedMediaControlGUI $parent_obj
 	 */
 	protected $parent_obj;
 
@@ -46,8 +46,7 @@ class ilUILimitedMediaControlTableGUI extends ilTable2GUI
         $this->setStyle('table', 'fullwidth');
         $this->addColumn($this->lng->txt("login"));
         $this->addColumn($this->lng->txt("name"));
-        $this->addColumn($this->plugin->txt("question"));
-        $this->addColumn($this->plugin->txt("medium"));
+        $this->addColumn($this->plugin->txt("question_medium"));
         $this->addColumn($this->plugin->txt('limit'));
         $this->addColumn($this->lng->txt('actions'));
 
@@ -64,15 +63,16 @@ class ilUILimitedMediaControlTableGUI extends ilTable2GUI
 
     /**
      * Prepare the data to be shown
-     * @param int   $a_obj_id       test object id
+     * @param ilObjTest $testObj
+     * @param ilTestParticipantData $pdataObj
      */
-	public function prepareData($a_obj_id)
+	public function prepareData($testObj, $pdataObj)
     {
         require_once('Modules/TestQuestionPool/classes/class.assQuestion.php');
         require_once('Services/MediaObjects/classes/class.ilObjMediaObject.php');
 
         $rows = array();
-        foreach ($this->plugin->getTestLimits($a_obj_id) as $limit)
+        foreach ($this->plugin->getTestLimits($testObj->getId()) as $limit)
         {
             $row = array();
             $row['limit_obj'] = $limit;
@@ -84,29 +84,23 @@ class ilUILimitedMediaControlTableGUI extends ilTable2GUI
             }
             else
             {
-                $name = ilObjUser::_lookupName($limit->getUserId());
-                $row['login'] = $name['login'];
-                $row['name'] = $name['lastname'] . ', ' . $name['firstname'];
+                $active_id = $pdataObj->getActiveIdByUserId($limit->getUserId());
+                $udata = $pdataObj->getUserDataByActiveId($active_id);
+                $row['login'] = $udata['login'];
+                $row['name'] = $this->parent_obj->formatParticipantName($active_id, false);
             }
 
-            if ($limit->getPageId() == 0)
-            {
-                $row['question'] = '';
-            }
-            else
-            {
-                $row['question'] = assQuestion::_getTitle($limit->getPageId());
-            }
-
-            if ($limit->getMobId() == 0)
+            if ($limit->getPageId() == 0 || $limit->getMobId() == 0)
             {
                 $row['medium'] = $this->plugin->txt('all_media');
             }
             else
             {
-                $row['medium'] = ilObjMediaObject::_lookupTitle($limit->getMobId());
+                $row['question'] = $this->parent_obj->formatQuestionMediumTitle(
+                    assQuestion::_getTitle($limit->getPageId()),
+                    ilObjMediaObject::_lookupTitle($limit->getMobId())
+                );
             }
-
             $row['limit'] = $limit->getLimit();
             $rows[] = $row;
         }
@@ -128,15 +122,13 @@ class ilUILimitedMediaControlTableGUI extends ilTable2GUI
         $list->setListTitle($this->lng->txt('actions'));
 
         $this->ctrl->setParameter($this->parent_obj, 'user_id', $limit->getUserId());
-        $this->ctrl->setParameter($this->parent_obj, 'page_id', $limit->getPageId());
-        $this->ctrl->setParameter($this->parent_obj, 'mob_id', $limit->getMobId());
+        $this->ctrl->setParameter($this->parent_obj, 'page_mob_id', $limit->getPageId().'_' . $limit->getMobId());
 
         $list->addItem($this->lng->txt('edit'), $this->ctrl->getLinkTarget($this->parent_obj,'editLimit'));
         $list->addItem($this->lng->txt('delete'), $this->ctrl->getLinkTarget($this->parent_obj,'deleteLimit'));
 
         $this->tpl->setVariable('LOGIN', $a_set['login']);
         $this->tpl->setVariable('NAME', $a_set['name']);
-        $this->tpl->setVariable('QUESTION', $a_set['question']);
         $this->tpl->setVariable('MEDIUM', $a_set['medium']);
         $this->tpl->setVariable('LIMIT', $a_set['limit']);
         $this->tpl->setVariable('ACTIONS', $list->getHTML());

@@ -28,13 +28,15 @@ class ilUILimitedMediaControlGUI
 	/** @var ilObjTest $testObj */
 	protected $testObj;
 
+	/** @var  ilTestParticipantData $pdataObj */
+    protected $pdataObj;
 
 	/**
 	 * ilUILimitedMediaControlGUI constructor.
 	 */
 	public function __construct()
 	{
-		global $ilCtrl, $tpl, $lng;
+		global $ilDB, $ilCtrl, $tpl, $lng;
 
 		$this->ctrl = $ilCtrl;
 		$this->tpl = $tpl;
@@ -44,7 +46,12 @@ class ilUILimitedMediaControlGUI
 
 		$this->plugin = ilPlugin::getPluginObject(IL_COMP_SERVICE, 'UIComponent', 'uihk', 'UILimitedMediaControl');
 		$this->testObj = new ilObjTest($_GET['ref_id']);
-	}
+
+        require_once('Modules/Test/classes/class.ilTestParticipantData.php');
+        $this->pdataObj = new ilTestParticipantData($ilDB, $this->lng);
+        $this->pdataObj->load($this->testObj->getTestId());
+    }
+
 
 	/**
 	* Handles all commands, default is "show"
@@ -110,7 +117,41 @@ class ilUILimitedMediaControlGUI
 		return $this->testObj->getId();
 	}
 
-	/**
+    /**
+     * Format the name to be displayed for a participant
+     * @param int $a_active_id
+     * @param bool $a_add_login
+     * @return string
+     */
+    public function formatParticipantName($a_active_id, $a_add_login = true)
+    {
+        if (empty($a_active_id))
+        {
+            return $this->plugin->txt('all_participants');
+        }
+        $name = $this->pdataObj->getFormatedFullnameByActiveId($active_id);
+        if ($a_add_login)
+        {
+            $data = $this->pdataObj->getUserDataByActiveId($active_id);
+            $name .= ' ('.$data['login'].')';
+        }
+        return $name;
+    }
+
+    /**
+     * Format the titles of the question and the medium to fint into a select box
+     * @param string $a_question_title
+     * @param string $a_medium_title
+     * @return string
+     */
+    public function formatQuestionMediumTitle($a_question_title, $a_medium_title)
+    {
+        return ilUtil::shortenText($a_question_title, 40, true)
+            . " / "
+            . ilUtil::shortenText($a_medium_title, 40, true);
+    }
+
+    /**
 	 * Prepare the test header, tabs etc.
 	 */
 	protected function prepareOutput()
@@ -150,7 +191,7 @@ class ilUILimitedMediaControlGUI
 		/** @var   $tableGUI */
 		$this->plugin->includeClass('class.ilUILimitedMediaControlTableGUI.php');
 		$tableGUI = new ilUILimitedMediaControlTableGUI($this, 'showAdaptations');
-
+		$tableGUI->prepareData($this->testObj, $this->pdataObj);
 		$this->tpl->setContent($tableGUI->getHTML());
 		$this->tpl->show();
 	}
@@ -162,20 +203,16 @@ class ilUILimitedMediaControlGUI
     {
         global $ilDB;
 
-        require_once('Modules/Test/classes/class.ilTestParticipantData.php');
-        $pdata = new ilTestParticipantData($ilDB, $this->lng);
-        $pdata->load($this->testObj->getTestId());
+        $options = array('0' => $this->plugin->txt('all_participants'));
+        foreach ($pdata->getActiveIds() as $active_id)
+        {
+            $options[$active_id] = $this->formatParticipantName($active_id);
+        }
 
         require_once('Services/Form/classes/class.ilPropertyFormGUI.php');
         $form = new ilPropertyFormGUI();
         $form->setFormAction($this->ctrl->getFormAction($this, 'showAdaptations'));
         $form->setTitle($this->plugin->txt('select_participant'));
-
-        $options = array('0' => $this->plugin->txt('all_participants'));
-        foreach ($pdata->getActiveIds() as $active_id)
-        {
-            $options['active_id'] = $pdata->getFormatedFullnameByActiveId($active_id);
-        }
 
         $sel = new ilSelectInputGUI($this->plugin->txt('participant'), 'active_id');
         $sel->setOptions($options);
@@ -195,48 +232,163 @@ class ilUILimitedMediaControlGUI
     {
         global $ilDB;
 
-        require_once('Modules/Test/classes/class.ilTestParticipantData.php');
-        $pdata = new ilTestParticipantData($ilDB, $this->lng);
-        $pdata->load($this->testObj->getTestId());
+        $active_id = (int) $_REQUEST['active_id'];
 
-        $active_id = (int) $_GET['active_id'];
-
-        $questions = array();
+        // in a random text, only 'all media' can be selected for 'all participants'
         if ($active_id == 0 && $this->testObj->isRandomTest())
         {
             $this->ctrl->setParameter($this, 'user_id', 0);
-            $this->ctrl->setParameter($this, 'qst_mob', '');
+            $this->ctrl->setParameter($this, 'page_mob_id', '');
             $this->ctrl->redirect($this, 'editLimit');
         }
 
-
+        $question_ids = array();
         if ($this->testObj->isFixedTest())
         {
-            $questions = $this->testObj->getQuestionTitlesAndIndexes();
+            $question_ids = $this->testObj->getQuestions;
         }
         elseif ($this->testObj->isRandomTest())
         {
             foreach($this->testObj->getQuestionsOfTest($active_id) as $qdata)
             {
-                $questions[$qdata['question_fi']] = assQuestion::_getQuestionTitle($qdata['question_fi']);
+                $question_ids[] = [$qdata['question_fi']];
             }
         }
 
-        foreach ($questions as $question_id => $title)
+        $found = $this->plugin->findLimitedMedia($question_ids);
+        $options = array('' => $this->plugin->txt('all_media'));
+        foreach ($found as $data)
         {
-
+            $options[$data['page_id'].'_'.$data['mob_id']] = $this->formatQuestionMediumTitle(
+                assQuestion::_getTitle($data['page_id']), $data['title']);
         }
 
         require_once('Services/Form/classes/class.ilPropertyFormGUI.php');
         $form = new ilPropertyFormGUI();
         $form->setFormAction($this->ctrl->getFormAction($this, 'showAdaptations'));
-        $form->setTitle($this->plugin->txt('select_participant'));
+        $form->setTitle($this->plugin->txt('select_medium'));
 
+        $nam = new ilNonEditableValueGUI($this->plugin->txt('participant'));
+        $nam->setValue($this->formatParticipantName($active_id));
+        $form->addItem($nam);
 
+        $usr = new ilHiddenInputGUI('user_id');
+        $usr->setValue($active_id == 0 ? 0 : $this->pdataObj->getUserIdByActiveId($active_id));
+        $form->addItem($usr);
 
+        $sel = new ilSelectInputGUI($this->plugin->txt('question_medium'), 'page_mob_id');
+        $sel->setOptions($options);
+        $form->addItem($sel);
+
+        $form->addCommandButton('editLimit', $this->lng->txt('continue'));
+        $form->addCommandButton('showAdaptations', $this->lng->txt('cancel'));
+
+        $this->tpl->setContent($form->getHTML());
+        $this->tpl->show();
     }
 
-	/**
+
+    /**
+     * Edit the limit for the medium
+     */
+    protected function editLimit()
+    {
+        $user_id = (int) $_REQUEST['user_id'];
+        $parts = explode('_', (string) $_REQUEST['page_mob_id']);
+        $page_id = (int) $parts[0];
+        $mob_id = (int) $parts[1];
+        $active_id = ($user_id == 0 ? 0 : $this->pdataObj->getActiveIdByUserId($user_id));
+
+        if ($page_id != 0 && $mob_id != 0)
+        {
+            $found = (array) $this->plugin->findLimitedMedia((array) $page_id, $mob_id);
+            $data = $found[0];
+            $defined_limit = $data['limit'];
+            $title = $this->formatQuestionMediumTitle(assQuestion::_getTitle($page_id), $data['title']);
+        }
+        else
+        {
+            $defined_limit = null;
+            $title = $this->plugin->txt('all_media');
+        }
+
+        foreach ($this->plugin->getTestLimits($this->testObj->getId()) as $limitObj)
+        {
+            if ($limitObj->getPageId() == $page_id
+                && $limitObj->getMobId() == $mob_id
+                && $limitObj->getUserId() == $user_id)
+            {
+                $custom_limit = $limitObj->getLimit();
+                break;
+            }
+        }
+
+        require_once('Services/Form/classes/class.ilPropertyFormGUI.php');
+        $form = new ilPropertyFormGUI();
+        $form->setFormAction($this->ctrl->getFormAction($this, 'showAdaptations'));
+        $form->setTitle($this->plugin->txt('select_medium'));
+
+        $nam = new ilNonEditableValueGUI($this->plugin->txt('participant'));
+        $nam->setValue($this->formatParticipantName($active_id));
+        $form->addItem($nam);
+
+        $usr = new ilHiddenInputGUI('user_id');
+        $usr->setValue($user_id);
+        $form->addItem($usr);
+
+        $tit = new ilNonEditableValueGUI($this->plugin->txt('question_medium'));
+        $tit->setValue($title);
+        $form->addItem($tit);
+
+        $pgm = new ilHiddenInputGUI('page_mob_id');
+        $pgm->setValue($page_id.'_'.$mob_id);
+        $form->addItem($pgm);
+
+        $def = new ilNonEditableValueGUI($this->plugin->txt('limit_standard'));
+        $def->setValue($defined_limit);
+        $form->addItem($def);
+
+        $lim = new ilNumberInputGUI($this->plugin->txt('limit_custom'), 'limit');
+        $lim->setValue($custom_limit);
+        $form->addItem($def);
+
+        $form->addCommandButton('saveLimit', $this->lng->txt('save'));
+        $form->addCommandButton('showAdaptations', $this->lng->txt('cancel'));
+    }
+
+    /**
+     * Save an edited Limit
+     */
+    protected function saveLimit()
+    {
+        $user_id = (int) $_REQUEST['user_id'];
+        $parts = explode('_', (string) $_REQUEST['page_mob_id']);
+        $page_id = (int) $parts[0];
+        $mob_id = (int) $parts[1];
+        $limit = (int) $_REQUEST['limit'];
+
+        $this->plugin->saveLimit($this->testObj->getId(), $page_id, $mob_id, $user_id, $limit);
+        ilUtil::sendSuccess($this->plugin->txt('limit_saved'));
+        $this->ctrl->redirect($this, 'showAdaptations');
+    }
+
+    /**
+     * Delete a Limit
+     */
+    protected function deleteLimit()
+    {
+        $user_id = (int) $_REQUEST['user_id'];
+        $parts = explode('_', (string) $_REQUEST['page_mob_id']);
+        $page_id = (int) $parts[0];
+        $mob_id = (int) $parts[1];
+
+        $this->plugin->deleteLimit($this->testObj->getId(), $page_id, $mob_id, $user_id);
+        ilUtil::sendSuccess($this->plugin->txt('limit_deleted'));
+        $this->ctrl->redirect($this, 'showAdaptations');
+    }
+
+
+    /**
 	 * Set the Toolbar
 	 */
 	protected function setToolbar()

@@ -101,16 +101,45 @@ class ilUILimitedMediaControlPlugin extends ilUserInterfaceHookPlugin
         return ilLimitedMediaPlayerLimits::getTestLimits($a_obj_id);
     }
 
+    /**
+     * Save a limit
+     * @param int $a_obj_id
+     * @param int $a_page_id
+     * @param int $a_mob_id
+     * @param int $a_user_id
+     * @param int $a_limit
+     */
+    public function saveLimit($a_obj_id, $a_page_id, $a_mob_id, $a_user_id, $a_limit)
+    {
+        require_once("Customizing/global/plugins/Services/COPage/PCLimitedMediaPlayer/classes/class.ilLimitedMediaPlayerLimits.php");
+        $limitObj = new ilLimitedMediaPlayerLimits($a_obj_id, $a_page_id, $a_mob_id, $a_user_id, $a_limit);
+        $limitObj->write();
+    }
 
     /**
-     * Get the limited media on a page
-     * @param   array   $a_page_id
-     * @return  array   [['mob_id' => int, 'title' => string, 'limit' => int], ...]
+     * delete a limit
+     * @param int $a_obj_id
+     * @param int $a_page_id
+     * @param int $a_mob_id
+     * @param int $a_user_id
      */
-    public function getLimitedMedia($a_page_id, $a_mob_id = null)
+    public function deleteLimit($a_obj_id, $a_page_id, $a_mob_id, $a_user_id)
+    {
+        require_once("Customizing/global/plugins/Services/COPage/PCLimitedMediaPlayer/classes/class.ilLimitedMediaPlayerLimits.php");
+        $limitObj = new ilLimitedMediaPlayerLimits($a_obj_id, $a_page_id, $a_mob_id, $a_user_id, 0);
+        $limitObj->delete();
+    }
+
+    /**
+     * Find the limited media on a page
+     * @param   int[]        $a_page_ids    list of pages to scan
+     * @param   int[]|null   $a_mob_id      id of a media object to search for
+     * @return  array   [['page_id' => int, 'mob_id' => int, 'title' => string, 'limit' => int], ...]
+     */
+    public function findLimitedMedia($a_page_ids, $a_mob_id = null)
     {
         require_once("Customizing/global/plugins/Services/COPage/PCLimitedMediaPlayer/classes/class.ilLimitedMediaPlayerPlugin.php");
-        return ilLimitedMediaPlayerPlugin::getLimitedMedia($a_page_id, $a_mob_id);
+        return ilLimitedMediaPlayerPlugin::findLimitedMedia($a_page_ids, 'qpl', '-', $a_mob_id);
     }
 }
 

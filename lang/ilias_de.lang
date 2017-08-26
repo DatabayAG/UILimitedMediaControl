@@ -12,7 +12,7 @@ not_for_dynamic_test#:#Die Anpassung beschränkter Medien ist für fortlaufende 
 media_limits#:#Beschränkte Medienwiedergaben
 adapted_media_limits#:#Angepasste Wiedergaben
 new_adaptation#:#Neue Anpassung
-question#:#Frage
+question_medium#:#Frage / Medium
 medium#:#Medium
 all_media#:#Alle Medien
 all_participants#:#Alle Teilnehmer
@@ -21,3 +21,5 @@ limit_standard#:#Wiedergaben (Standard)
 limit_custom#:#Wiedergaben (angepasst)
 select_participant#:#Teilnehmer auswählen
 participant#:#Teilnehmer
+limit_saved#:#Die Einstellung wirde gespeichert.
+limit_deleted#:#Die Einstellung wurde gelöscht.
