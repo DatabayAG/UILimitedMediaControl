@@ -147,6 +147,10 @@ class ilUILimitedMediaControlGUI
      */
     public function formatQuestionMediumTitle($a_question_title, $a_medium_title)
     {
+        if (empty($a_question_title) && empty($a_medium_title))
+        {
+            return $this->plugin->txt('all_media');
+        }
         return ilUtil::shortenText($a_question_title, 40, true)
             . " / "
             . ilUtil::shortenText($a_medium_title, 40, true);
@@ -252,9 +256,11 @@ class ilUILimitedMediaControlGUI
         }
         elseif ($this->testObj->isRandomTest())
         {
+            // needed by getQuestionsOfTest
+            include_once('Modules/Test/classes/class.ilTestRandomQuestionSetConfig.php');
             foreach($this->testObj->getQuestionsOfTest($active_id) as $qdata)
             {
-                $question_ids[] = [$qdata['question_fi']];
+                $question_ids[] = $qdata['question_fi'];
             }
         }
 
