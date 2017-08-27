@@ -1,7 +1,10 @@
 <?php
 // Copyright (c) 2017 Institut fuer Lern-Innovation, Friedrich-Alexander-Universitaet Erlangen-Nuernberg, GPLv3, see LICENSE
 
-require_once ('Modules/Test/classes/class.ilObjTest.php');
+require_once('./Modules/Test/classes/class.ilObjTest.php');
+require_once('./Modules/Test/classes/class.ilTestParticipantData.php');
+require_once('./Modules/TestQuestionPool/classes/class.assQuestion.php');
+require_once('./Services/MediaObjects/classes/class.ilObjMediaObject.php');
 
 /**
  * GUI for Limited Media Control
@@ -45,9 +48,8 @@ class ilUILimitedMediaControlGUI
 		$lng->loadLanguageModule('assessment');
 
 		$this->plugin = ilPlugin::getPluginObject(IL_COMP_SERVICE, 'UIComponent', 'uihk', 'UILimitedMediaControl');
-		$this->testObj = new ilObjTest($_GET['ref_id']);
 
-        require_once('Modules/Test/classes/class.ilTestParticipantData.php');
+		$this->testObj = new ilObjTest($_GET['ref_id']);
         $this->pdataObj = new ilTestParticipantData($ilDB, $this->lng);
         $this->pdataObj->load($this->testObj->getTestId());
     }
@@ -82,6 +84,7 @@ class ilUILimitedMediaControlGUI
             case "selectParticipant":
             case "selectMedium":
             case "editLimit":
+            case "confirmDeleteLimit":
 				if ($this->prepareOutput())
 				{
 					$this->$cmd();
@@ -123,18 +126,16 @@ class ilUILimitedMediaControlGUI
      * @param bool $a_add_login
      * @return string
      */
-    public function formatParticipantName($a_active_id, $a_add_login = true)
+    public function formatParticipantName($a_active_id)
     {
         if (empty($a_active_id))
         {
             return $this->plugin->txt('all_participants');
         }
-        $name = $this->pdataObj->getFormatedFullnameByActiveId($active_id);
-        if ($a_add_login)
-        {
-            $data = $this->pdataObj->getUserDataByActiveId($active_id);
-            $name .= ' ('.$data['login'].')';
-        }
+        $name = $this->pdataObj->getFormatedFullnameByActiveId($a_active_id);
+        $data = $this->pdataObj->getUserDataByActiveId($a_active_id);
+        $name .= ' ('.$data['login'].')';
+
         return $name;
     }
 
@@ -192,6 +193,8 @@ class ilUILimitedMediaControlGUI
 		$this->plugin->includeClass('class.ilUILimitedMediaControlTableGUI.php');
 		$tableGUI = new ilUILimitedMediaControlTableGUI($this, 'showAdaptations');
 		$tableGUI->prepareData($this->testObj, $this->pdataObj);
+
+		ilUtil::sendInfo($this->plugin->txt('remark_media').'<br />'. $this->plugin->txt('remark_user'));
 		$this->tpl->setContent($tableGUI->getHTML());
 		$this->tpl->show();
 	}
@@ -204,7 +207,7 @@ class ilUILimitedMediaControlGUI
         global $ilDB;
 
         $options = array('0' => $this->plugin->txt('all_participants'));
-        foreach ($pdata->getActiveIds() as $active_id)
+        foreach ($this->pdataObj->getActiveIds() as $active_id)
         {
             $options[$active_id] = $this->formatParticipantName($active_id);
         }
@@ -245,7 +248,7 @@ class ilUILimitedMediaControlGUI
         $question_ids = array();
         if ($this->testObj->isFixedTest())
         {
-            $question_ids = $this->testObj->getQuestions;
+            $question_ids = $this->testObj->getQuestions();
         }
         elseif ($this->testObj->isRandomTest())
         {
@@ -297,7 +300,7 @@ class ilUILimitedMediaControlGUI
         $parts = explode('_', (string) $_REQUEST['page_mob_id']);
         $page_id = (int) $parts[0];
         $mob_id = (int) $parts[1];
-        $active_id = ($user_id == 0 ? 0 : $this->pdataObj->getActiveIdByUserId($user_id));
+        $active_id = (int) $this->pdataObj->getActiveIdByUserId($user_id);
 
         if ($page_id != 0 && $mob_id != 0)
         {
@@ -326,7 +329,7 @@ class ilUILimitedMediaControlGUI
         require_once('Services/Form/classes/class.ilPropertyFormGUI.php');
         $form = new ilPropertyFormGUI();
         $form->setFormAction($this->ctrl->getFormAction($this, 'showAdaptations'));
-        $form->setTitle($this->plugin->txt('select_medium'));
+        $form->setTitle($this->plugin->txt('adapt_limit'));
 
         $nam = new ilNonEditableValueGUI($this->plugin->txt('participant'));
         $nam->setValue($this->formatParticipantName($active_id));
@@ -344,16 +347,24 @@ class ilUILimitedMediaControlGUI
         $pgm->setValue($page_id.'_'.$mob_id);
         $form->addItem($pgm);
 
-        $def = new ilNonEditableValueGUI($this->plugin->txt('limit_standard'));
-        $def->setValue($defined_limit);
-        $form->addItem($def);
+        if (isset($defined_limit))
+        {
+            $def = new ilNonEditableValueGUI($this->plugin->txt('limit_standard'));
+            $def->setValue($defined_limit);
+            $form->addItem($def);
+        }
 
         $lim = new ilNumberInputGUI($this->plugin->txt('limit_custom'), 'limit');
+        $lim->setDecimals(0);
+        $lim->setSize(2);
         $lim->setValue($custom_limit);
-        $form->addItem($def);
+        $form->addItem($lim);
 
         $form->addCommandButton('saveLimit', $this->lng->txt('save'));
         $form->addCommandButton('showAdaptations', $this->lng->txt('cancel'));
+
+        $this->tpl->setContent($form->getHTML());
+        $this->tpl->show();
     }
 
     /**
@@ -368,9 +379,42 @@ class ilUILimitedMediaControlGUI
         $limit = (int) $_REQUEST['limit'];
 
         $this->plugin->saveLimit($this->testObj->getId(), $page_id, $mob_id, $user_id, $limit);
-        ilUtil::sendSuccess($this->plugin->txt('limit_saved'));
+        ilUtil::sendSuccess($this->plugin->txt('limit_saved'), true);
         $this->ctrl->redirect($this, 'showAdaptations');
     }
+
+    /**
+     * Confirm the deletion of a limit
+     */
+    protected function confirmDeleteLimit()
+    {
+        $user_id = (int) $_REQUEST['user_id'];
+        $active_id = (int) $this->pdataObj->getActiveIdByUserId($user_id);
+        $parts = explode('_', (string) $_REQUEST['page_mob_id']);
+        $page_id = (int) $parts[0];
+        $mob_id = (int) $parts[1];
+
+        $uname = $this->formatParticipantName($active_id);
+        $mtitle = $this->formatQuestionMediumTitle(
+            assQuestion::_getTitle($page_id),
+            ilObjMediaObject::_lookupTitle($mob_id)
+        );
+
+        require_once('Services/Utilities/classes/class.ilConfirmationGUI.php');
+        $gui = new ilConfirmationGUI;
+        $gui->setFormAction($this->ctrl->getFormAction($this, "showAdaptations"));
+        $gui->addHiddenItem('user_id', $user_id);
+        $gui->addHiddenItem('page_mob_id', $page_id . '_' . $mob_id);
+        $gui->setHeaderText($this->plugin->txt('confirm_delete_limit'));
+        $gui->addItem('','', $this->plugin->txt('participant').': '. $uname);
+        $gui->addItem('','', $this->plugin->txt('question_medium').': '. $mtitle);
+        $gui->addButton($this->lng->txt('delete'), 'deleteLimit');
+        $gui->addButton($this->lng->txt('cancel'), 'showAdaptations');
+
+        $this->tpl->setContent($gui->getHTML());
+        $this->tpl->show();
+    }
+
 
     /**
      * Delete a Limit
@@ -383,7 +427,7 @@ class ilUILimitedMediaControlGUI
         $mob_id = (int) $parts[1];
 
         $this->plugin->deleteLimit($this->testObj->getId(), $page_id, $mob_id, $user_id);
-        ilUtil::sendSuccess($this->plugin->txt('limit_deleted'));
+        ilUtil::sendSuccess($this->plugin->txt('limit_deleted'), true);
         $this->ctrl->redirect($this, 'showAdaptations');
     }
 

@@ -8,18 +8,22 @@
 
 <!-- language file start -->
 player_plugin_not_active#:#Das Plugin "PCLimitedMediaPlayer" ist nicht aktiviert!
-not_for_dynamic_test#:#Die Anpassung beschränkter Medien ist für fortlaufende Tests nicht verfügbar.
+not_for_dynamic_test#:#Die Anpassung beschränkter Medien ist für fortlaufende Tests nicht verfügbar!
 media_limits#:#Beschränkte Medienwiedergaben
-adapted_media_limits#:#Angepasste Wiedergaben
+adapted_media_limits#:#Angepasste Beschränkungen
 new_adaptation#:#Neue Anpassung
-question_medium#:#Frage / Medium
-medium#:#Medium
-all_media#:#Alle Medien
-all_participants#:#Alle Teilnehmer
-limit#:#Wiedergaben
-limit_standard#:#Wiedergaben (Standard)
-limit_custom#:#Wiedergaben (angepasst)
 select_participant#:#Teilnehmer auswählen
 participant#:#Teilnehmer
-limit_saved#:#Die Einstellung wirde gespeichert.
-limit_deleted#:#Die Einstellung wurde gelöscht.
+all_participants#:#Alle Teilnehmer
+select_medium#:#Medium auswählen
+question_medium#:#Frage / Medium
+all_media#:#Alle Medien
+adapt_limit#:#Beschränkung anpassen
+limit#:#Max. Wiedergaben
+limit_standard#:#Max. Wiedergaben (Standard)
+limit_custom#:#Max. Wiedergaben (angepasst)
+limit_saved#:#Die Anpassung wurde gespeichert.
+confirm_delete_limit#:#Möchten Sie die folgende Anpassung löschen?
+limit_deleted#:#Die Anpassung wurde gelöscht.
+remark_media#:#Die Anpassung für ein Medium hat Vorrang vor einer Anpassung für alle Medien.
+remark_user#:#Die Anpassung für einen Benutzer (auch alle Medien) hat Vorrang vor einer Anpassungen für alle Nutzer.

@@ -93,12 +93,12 @@ class ilUILimitedMediaControlPlugin extends ilUserInterfaceHookPlugin
     /**
      * Get the limits defined for a test
      * @param   int   $a_obj_id    obj_id of the test object
-     * @return  ilLimitedMediaPlayerLimits[]
+     * @return  ilLimitedMediaPlayerLimit[]
      */
     public function getTestLimits($a_obj_id)
     {
-        require_once("Customizing/global/plugins/Services/COPage/PCLimitedMediaPlayer/classes/class.ilLimitedMediaPlayerLimits.php");
-        return ilLimitedMediaPlayerLimits::getTestLimits($a_obj_id);
+        require_once("Customizing/global/plugins/Services/COPage/PageComponent/PCLimitedMediaPlayer/classes/class.ilLimitedMediaPlayerLimit.php");
+        return ilLimitedMediaPlayerLimit::getTestLimits($a_obj_id);
     }
 
     /**
@@ -111,8 +111,8 @@ class ilUILimitedMediaControlPlugin extends ilUserInterfaceHookPlugin
      */
     public function saveLimit($a_obj_id, $a_page_id, $a_mob_id, $a_user_id, $a_limit)
     {
-        require_once("Customizing/global/plugins/Services/COPage/PCLimitedMediaPlayer/classes/class.ilLimitedMediaPlayerLimits.php");
-        $limitObj = new ilLimitedMediaPlayerLimits($a_obj_id, $a_page_id, $a_mob_id, $a_user_id, $a_limit);
+        require_once("Customizing/global/plugins/Services/COPage/PageComponent/PCLimitedMediaPlayer/classes/class.ilLimitedMediaPlayerLimit.php");
+        $limitObj = new ilLimitedMediaPlayerLimit($a_obj_id, $a_page_id, $a_mob_id, $a_user_id, $a_limit);
         $limitObj->write();
     }
 
@@ -125,8 +125,8 @@ class ilUILimitedMediaControlPlugin extends ilUserInterfaceHookPlugin
      */
     public function deleteLimit($a_obj_id, $a_page_id, $a_mob_id, $a_user_id)
     {
-        require_once("Customizing/global/plugins/Services/COPage/PCLimitedMediaPlayer/classes/class.ilLimitedMediaPlayerLimits.php");
-        $limitObj = new ilLimitedMediaPlayerLimits($a_obj_id, $a_page_id, $a_mob_id, $a_user_id, 0);
+        require_once("Customizing/global/plugins/Services/COPage/PageComponent/PCLimitedMediaPlayer/classes/class.ilLimitedMediaPlayerLimit.php");
+        $limitObj = new ilLimitedMediaPlayerLimit($a_obj_id, $a_page_id, $a_mob_id, $a_user_id, 0);
         $limitObj->delete();
     }
 
@@ -138,8 +138,8 @@ class ilUILimitedMediaControlPlugin extends ilUserInterfaceHookPlugin
      */
     public function findLimitedMedia($a_page_ids, $a_mob_id = null)
     {
-        require_once("Customizing/global/plugins/Services/COPage/PCLimitedMediaPlayer/classes/class.ilLimitedMediaPlayerPlugin.php");
-        return ilLimitedMediaPlayerPlugin::findLimitedMedia($a_page_ids, 'qpl', '-', $a_mob_id);
+        require_once("Customizing/global/plugins/Services/COPage/PageComponent/PCLimitedMediaPlayer/classes/class.ilPCLimitedMediaPlayerPlugin.php");
+        return ilPCLimitedMediaPlayerPlugin::findLimitedMedia($a_page_ids, 'qpl', '-', $a_mob_id);
     }
 }
 

@@ -7,3 +7,23 @@
 //
 
 <!-- language file start -->
+player_plugin_not_active#:#The plugin 'PCLimitedMediaPlayer' ist not aktivated!
+not_for_dynamic_test#:#The adaptation of limited media is not possible for continuous tests!
+media_limits#:#Limited Media Plays
+adapted_media_limits#:#Adapred Limits
+new_adaptation#:#New Adaptation
+select_participant#:#Select Participant
+participant#:#Participant
+all_participants#:#All Participants
+select_medium#:#Select Medium
+question_medium#:#Question / Medium
+all_media#:#All Media
+adapt_limit#:#Adapt Limit
+limit#:#Max. Plays
+limit_standard#:#Max. Plays  (Standard)
+limit_custom#:#Max. Plays (adapted)
+limit_saved#:#The adaptations is saved.
+confirm_delete_limit#:#Do you want to delete the following adaptation?
+limit_deleted#:#The adaptation is deleted.
+remark_media#:#The adaptation for one medium has a higher preference then an adaptation for all media.
+remark_user#:#The adaptation for one user (even all media) has a higher preference than an adaptation for all users.
