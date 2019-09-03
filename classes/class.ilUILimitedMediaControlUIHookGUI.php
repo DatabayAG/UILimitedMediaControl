@@ -20,36 +20,31 @@ class ilUILimitedMediaControlUIHookGUI extends ilUIHookPluginGUI
 	 */
 	function modifyGUI($a_comp, $a_part, $a_par = array())
 	{
-		/** @var ilCtrl $ilCtrl */
-		/** @var ilTabsGUI $ilTabs */
-		global $ilCtrl, $ilTabs;
+		/** @var ilCtrl $ilCtrl */ /** @var ilTabsGUI $ilTabs */ global $ilCtrl, $ilTabs;
 
 		// add sub tab only if player is active
 		if (!$this->plugin_object->checkPlayerActive())
-        {
-            return;
-        }
+		{
+			return;
+		}
 
 		switch ($a_part)
 		{
 			// case 'tabs':
 			case 'sub_tabs':
 
-				if ($ilCtrl->getCmdClass() == 'ilobjtestgui'
-					and in_array($ilCtrl->getCmd(), array('participants')))
+				if (($ilCtrl->getCmdClass() == 'ilobjtestgui' and in_array($ilCtrl->getCmd(), array('participants'))) OR ($ilCtrl->getCmdClass() == 'iltestparticipantsgui'))
 				{
-					$ilCtrl->saveParameterByClass('ilUILimitedMediaControlGUI','ref_id');
+					$ilCtrl->saveParameterByClass('ilUILimitedMediaControlGUI', 'ref_id');
 
 					// we need to use the deprecated method because evaluation sub tabs work with automatic activation
 					// with addSubTab the new sub tabs would always be activated
-					$ilTabs->addSubTabTarget(
-						$this->plugin_object->txt('media_limits'), // text is also the subtab id
-						$ilCtrl->getLinkTargetByClass(array('ilUIPluginRouterGUI','ilUILimitedMediaControlGUI'), 'showAdaptations'),
-						array('showAdaptations','selectParticipant', 'selectMedium', 'editLimit'), // commands to be recognized for activation
-						'ilUILimitedMediaControlGUI', 	// cmdClass to be recognized activation
-						'', 								// frame
-						false, 							// manual activation
-						true								// text is direct, not a language var
+					$ilTabs->addSubTabTarget($this->plugin_object->txt('media_limits'), // text is also the subtab id
+						$ilCtrl->getLinkTargetByClass(array('ilUIPluginRouterGUI', 'ilUILimitedMediaControlGUI'), 'showAdaptations'), array('showAdaptations', 'selectParticipant', 'selectMedium', 'editLimit'), // commands to be recognized for activation
+						'ilUILimitedMediaControlGUI',    // cmdClass to be recognized activation
+						'',                                // frame
+						false,                            // manual activation
+						true                                // text is direct, not a language var
 					);
 
 					// save the tabs for reuse on the plugin pages
@@ -59,7 +54,7 @@ class ilUILimitedMediaControlUIHookGUI extends ilUIHookPluginGUI
 					$_SESSION['UILimitedMediaControl']['TabSubTarget'] = $ilTabs->sub_target;
 				}
 
-				if ($ilCtrl->getCmdClass()  == 'iluilimitedmediacontrolgui')
+				if ($ilCtrl->getCmdClass() == 'iluilimitedmediacontrolgui')
 				{
 					// reuse the tabs that were saved from the test gui
 					if (isset($_SESSION['UILimitedMediaControl']['TabTarget']))
