@@ -19,7 +19,7 @@ class ilUILimitedMediaControlGUI
 	/** @var ilCtrl $ctrl */
 	protected $ctrl;
 
-	/** @var ilTemplate $tpl */
+	/** @var ilglobalTemplateInterface $tpl */
 	protected $tpl;
 
 	/** @var  ilLanguage $lng */
@@ -169,7 +169,6 @@ class ilUILimitedMediaControlGUI
 		$ilLocator->addRepositoryItems($this->testObj->getRefId());
 		$ilLocator->addItem($this->testObj->getTitle(),$this->ctrl->getLinkTargetByClass('ilObjTestGUI'));
 
-		$this->tpl->getStandardTemplate();
 		$this->tpl->setLocator();
 		$this->tpl->setTitle($this->testObj->getPresentationTitle());
 		$this->tpl->setDescription($this->testObj->getLongDescription());
@@ -179,7 +178,7 @@ class ilUILimitedMediaControlGUI
 		if ($this->testObj->isDynamicTest())
 		{
 			ilUtil::sendFailure($this->plugin->txt('not_for_dynamic_test'));
-			$this->tpl->show();
+			$this->tpl->printToStdout();
 			return false;
 		}
 
@@ -200,7 +199,7 @@ class ilUILimitedMediaControlGUI
 
 		ilUtil::sendInfo($this->plugin->txt('remark_media').'<br />'. $this->plugin->txt('remark_user'));
 		$this->tpl->setContent($tableGUI->getHTML());
-		$this->tpl->show();
+        $this->tpl->printToStdout();
 	}
 
     /**
@@ -229,7 +228,7 @@ class ilUILimitedMediaControlGUI
         $form->addCommandButton('showAdaptations', $this->lng->txt('cancel'));
 
         $this->tpl->setContent($form->getHTML());
-        $this->tpl->show();
+        $this->tpl->printToStdout();
     }
 
     /**
@@ -293,7 +292,7 @@ class ilUILimitedMediaControlGUI
         $form->addCommandButton('showAdaptations', $this->lng->txt('cancel'));
 
         $this->tpl->setContent($form->getHTML());
-        $this->tpl->show();
+        $this->tpl->printToStdout();
     }
 
 
@@ -370,7 +369,7 @@ class ilUILimitedMediaControlGUI
         $form->addCommandButton('showAdaptations', $this->lng->txt('cancel'));
 
         $this->tpl->setContent($form->getHTML());
-        $this->tpl->show();
+        $this->tpl->printToStdout();
     }
 
     /**
@@ -418,7 +417,7 @@ class ilUILimitedMediaControlGUI
         $gui->addButton($this->lng->txt('cancel'), 'showAdaptations');
 
         $this->tpl->setContent($gui->getHTML());
-        $this->tpl->show();
+        $this->tpl->printToStdout();
     }
 
 
@@ -450,7 +449,7 @@ class ilUILimitedMediaControlGUI
 		$button = ilLinkButton::getInstance();
 		$button->setUrl($this->ctrl->getLinkTarget($this, 'selectParticipant'));
 		$button->setCaption($this->plugin->txt('new_adaptation'), false);
-		$button->getOmitPreventDoubleSubmission();
+		$button->setOmitPreventDoubleSubmission(true);
 		$ilToolbar->addButtonInstance($button);
     }
 }
