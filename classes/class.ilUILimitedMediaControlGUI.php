@@ -1,10 +1,6 @@
 <?php
 // Copyright (c) 2017 Institut fuer Lern-Innovation, Friedrich-Alexander-Universitaet Erlangen-Nuernberg, GPLv3, see LICENSE
 
-require_once('./Modules/Test/classes/class.ilObjTest.php');
-require_once('./Modules/Test/classes/class.ilTestParticipantData.php');
-require_once('./Modules/TestQuestionPool/classes/class.assQuestion.php');
-require_once('./Services/MediaObjects/classes/class.ilObjMediaObject.php');
 
 /**
  * GUI for Limited Media Control

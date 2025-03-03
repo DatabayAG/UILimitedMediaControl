@@ -8,12 +8,12 @@ class ilUILimitedMediaControlTableGUI extends ilTable2GUI
 	/**
 	 * @var ilUILimitedMediaControlGUI $parent_obj
 	 */
-	protected $parent_obj;
+	protected ?object $parent_obj;
 
 	/**
 	 * @var string $parent_cmd
 	 */
-	protected $parent_cmd;
+	protected string $parent_cmd;
 
 	/**
 	 * @var ilUILimitedMediaControlPlugin|null
@@ -93,7 +93,7 @@ class ilUILimitedMediaControlTableGUI extends ilTable2GUI
         $this->setData($rows);
     }
 
-    protected function fillRow($a_set)
+    protected function fillRow(array $a_set): void
     {
         /** @var ilLimitedMediaPlayerLimit $limit */
         $limit = $a_set['limit_obj'];

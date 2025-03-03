@@ -18,7 +18,11 @@ class ilUILimitedMediaControlUIHookGUI extends ilUIHookPluginGUI
 	 * @param string $a_part string that identifies the part of the UI that is handled
 	 * @param string $a_par array of parameters (depend on $a_comp and $a_part)
 	 */
-	function modifyGUI($a_comp, $a_part, $a_par = array())
+	function modifyGUI(
+        string $a_comp,
+        string $a_part,
+        array $a_par = array()
+    ): void
 	{
 		/** @var ilCtrl $ilCtrl */ /** @var ilTabsGUI $ilTabs */ global $ilCtrl, $ilTabs;
 
