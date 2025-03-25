@@ -27,3 +27,4 @@ confirm_delete_limit#:#Möchten Sie die folgende Anpassung löschen?
 limit_deleted#:#Die Anpassung wurde gelöscht.
 remark_media#:#Die Anpassung für ein Medium hat Vorrang vor einer Anpassung für alle Medien.
 remark_user#:#Die Anpassung für einen Benutzer (auch alle Medien) hat Vorrang vor einer Anpassungen für alle Nutzer.
+unlimited#:#unbegrenzt

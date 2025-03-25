@@ -1,127 +1,59 @@
 <?php
-// Copyright (c) 2017 Institut fuer Lern-Innovation, Friedrich-Alexander-Universitaet Erlangen-Nuernberg, GPLv3, see LICENSE
 
+declare(strict_types=1);
+
+use ILIAS\DI\Container;
 
 class ilUILimitedMediaControlPlugin extends ilUserInterfaceHookPlugin
 {
-	/**
-	 * @var ilUILimitedMediaControlPlugin $config
-	 */
-	protected $config;
+    private Container $dic;
+    private ilObjUser $user;
+    private ?ilPageComponentPlugin $player_plugin;
 
-
-	/**
-	 * Get a user preference
-	 * @param string	$name
-	 * @param mixed		$default
-	 * @return mixed
-	 */
-	public function getUserPreference($name, $default = false)
-	{
-		global $ilUser;
-		$value = $ilUser->getPref($this->getId().'_'.$name);
-		if ($value !== false)
-		{
-			return $value;
-		}
-		else
-		{
-			return $default;
-		}
-	}
-
-
-	/**
-	 * Set a user preference
-	 * @param string	$name
-	 * @param mixed		$value
-	 */
-	public function setUserPreference($name, $value)
-	{
-		global $ilUser;
-		$ilUser->writePref($this->getId().'_'.$name, $value);
-	}
-
-
-    /**
-     * Check if the player plugin is active
-     * @return bool
-     */
-	public function checkPlayerActive()
+    protected function init(): void
     {
-        /** @var ilPluginAdmin $ilPluginAdmin */
-        global $ilPluginAdmin;
+        global $DIC;
 
-        return $ilPluginAdmin->isActive('Services', 'COPage', 'pgcp', 'PCLimitedMediaPlayer');
+        $this->dic = $DIC;
+        $this->user = $DIC->user();
+        $this->player_plugin = $this->dic['component.factory']->getPlugin('limply');
     }
 
+    /**
+     * Get the player plugin
+     * Use base class as return type because plugin may not exist
+     * @return ilPCLimitedMediaPlayerPlugin|null
+     */
+    public function getPlayerPlugin(): ilPageComponentPlugin
+    {
+        return $this->player_plugin;
+    }
+
+    public function getUserPreference(string $name, string $default = ''): string
+    {
+        $value = $this->user->getPref($this->getId() . '_' . $name);
+        return $value ?? $default;
+    }
+
+    public function setUserPreference(string $name, string $value)
+    {
+        $this->user->writePref($this->getId() . '_' . $name, $value);
+    }
+
+    public function checkPlayerActive(): bool
+    {
+        return $this->getPlayerPlugin() !== null && $this->getPlayerPlugin()->isActive();
+    }
 
     /**
-     * Check if plugin can be activated
-     * @return bool
      * @throws ilPluginException
      */
-    public function beforeActivation(): bool
+    public function activate(): bool
     {
-        if (!$this->checkPlayerActive())
-        {
-            ilUtil::sendFailure($this->txt("player_plugin_not_active"), true);
+        if (!$this->checkPlayerActive()) {
             throw new ilPluginException($this->txt("player_plugin_not_active"));
+        } else {
+            return parent::activate();
         }
-        else
-        {
-            return parent::beforeActivation();
-        }
-    }
-
-
-    /**
-     * Get the limits defined for a test
-     * @param   int   $a_obj_id    obj_id of the test object
-     * @return  ilLimitedMediaPlayerLimit[]
-     */
-    public function getTestLimits($a_obj_id)
-    {
-        return ilLimitedMediaPlayerLimit::getTestLimits($a_obj_id);
-    }
-
-    /**
-     * Save a limit
-     * @param int $a_obj_id
-     * @param int $a_page_id
-     * @param int $a_mob_id
-     * @param int $a_user_id
-     * @param int $a_limit
-     */
-    public function saveLimit($a_obj_id, $a_page_id, $a_mob_id, $a_user_id, $a_limit)
-    {
-        $limitObj = new ilLimitedMediaPlayerLimit($a_obj_id, $a_page_id, $a_mob_id, $a_user_id, $a_limit);
-        $limitObj->write();
-    }
-
-    /**
-     * delete a limit
-     * @param int $a_obj_id
-     * @param int $a_page_id
-     * @param int $a_mob_id
-     * @param int $a_user_id
-     */
-    public function deleteLimit($a_obj_id, $a_page_id, $a_mob_id, $a_user_id)
-    {
-        $limitObj = new ilLimitedMediaPlayerLimit($a_obj_id, $a_page_id, $a_mob_id, $a_user_id, 0);
-        $limitObj->delete();
-    }
-
-    /**
-     * Find the limited media on a page
-     * @param   int[]        $a_page_ids    list of pages to scan
-     * @param   int[]|null   $a_mob_id      id of a media object to search for
-     * @return  array   [['page_id' => int, 'mob_id' => int, 'title' => string, 'limit' => int], ...]
-     */
-    public function findLimitedMedia($a_page_ids, $a_mob_id = null)
-    {
-        return ilPCLimitedMediaPlayerPlugin::findLimitedMedia($a_page_ids, 'qpl', '-', $a_mob_id);
     }
 }
-
-?>

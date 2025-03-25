@@ -27,3 +27,4 @@ confirm_delete_limit#:#Do you want to delete the following adaptation?
 limit_deleted#:#The adaptation is deleted.
 remark_media#:#The adaptation for one medium has a higher preference then an adaptation for all media.
 remark_user#:#The adaptation for one user (even all media) has a higher preference than an adaptation for all users.
+unlimited#:#unbegrenzt

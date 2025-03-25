@@ -1,453 +1,391 @@
 <?php
-// Copyright (c) 2017 Institut fuer Lern-Innovation, Friedrich-Alexander-Universitaet Erlangen-Nuernberg, GPLv3, see LICENSE
 
+declare(strict_types=1);
+
+use ilGlobalTemplateInterface as Gti;
+use ILIAS\HTTP\Services as HttpServices;
+use ILIAS\Refinery\Factory as Refinery;
+use ILIAS\UI\Factory as UiFactory;
+use ILIAS\UI\Renderer as UiRenderer;
 
 /**
- * GUI for Limited Media Control
- *
- * @author Fred Neumann <fred.neumann@fau.de>
- * @version $Id$
- *
  * @ilCtrl_IsCalledBy ilUILimitedMediaControlGUI: ilUIPluginRouterGUI
  */
 class ilUILimitedMediaControlGUI
 {
-	/** @var ilCtrl $ctrl */
-	protected $ctrl;
+    private ilCtrl $ctrl;
+    private ilAccessHandler $access;
+    private ilToolbarGUI $toolbar;
+    private ilLocatorGUI $locator;
+    private ilLanguage $lng;
+    private Gti $tpl;
+    private HttpServices $http;
+    private Refinery $refinery;
 
-	/** @var ilTemplate $tpl */
-	protected $tpl;
+    private UiFactory $ui_factory;
+    private UiRenderer $ui_renderer;
 
-	/** @var  ilLanguage $lng */
-	protected $lng;
+    private ilObjTest $test;
+    private ilTestParticipantData $participants;
 
-	/** @var ilUILimitedMediaControlPlugin $plugin */
-	protected $plugin;
+    private ilUILimitedMediaControlPlugin $plugin;
 
-	/** @var ilObjTest $testObj */
-	protected $testObj;
+    /** @var ilPCLimitedMediaPlayerPlugin  */
+    private ilPageComponentPlugin $player_plugin;
 
-	/** @var  ilTestParticipantData $pdataObj */
-    protected $pdataObj;
+    /** @var ILIAS\Plugin\LimitedMediaPlayer\MediumRepo */
+    private $medium_repo;
 
-	/**
-	 * ilUILimitedMediaControlGUI constructor.
-	 */
-	public function __construct()
-	{
-		global $ilDB, $ilCtrl, $tpl, $lng;
+    /** @var ILIAS\Plugin\LimitedMediaPlayer\LimitRepo */
+    private $limit_repo;
 
-		$this->ctrl = $ilCtrl;
-		$this->tpl = $tpl;
-		$this->lng = $lng;
+    // Request variables
 
-		$lng->loadLanguageModule('assessment');
+    private int $ref_id = 0;
+    private int $active_id = 0;
+    private ?int $user_id = null;
+    private ?int $plays = null;
+    private ?string $page_and_file = null;
+    private ?int $page_id = null;
+    private ?string $file_id = null;
 
-		$this->plugin = ilPlugin::getPluginObject(IL_COMP_SERVICE, 'UIComponent', 'uihk', 'UILimitedMediaControl');
+    public function __construct()
+    {
+        global $DIC;
 
-		$this->testObj = new ilObjTest($_GET['ref_id']);
-        $this->pdataObj = new ilTestParticipantData($ilDB, $this->lng);
-        $this->pdataObj->load($this->testObj->getTestId());
+        $this->ctrl = $DIC->ctrl();
+        $this->access = $DIC->access();
+        $this->tpl = $DIC->ui()->mainTemplate();
+        $this->toolbar = $DIC->toolbar();
+        $this->locator = $DIC->locator();
+        $this->lng = $DIC->lng();
+        $this->ui_factory = $DIC->ui()->factory();
+        $this->ui_renderer = $DIC->ui()->renderer();
+        $this->http = $DIC->http();
+        $this->refinery = $DIC->refinery();
+
+        $this->lng->loadLanguageModule('assessment');
+
+        $this->plugin = $DIC['component.factory']->getPlugin('limpco');
+        $this->player_plugin = $this->plugin->getPlayerPlugin();
+        $this->medium_repo = $this->player_plugin->factory()->mediumRepo();
+        $this->limit_repo = $this->player_plugin->factory()->limitRepo();
+
+        $this->participants = new ilTestParticipantData($DIC->database(), $DIC->language());
     }
 
-
-	/**
-	* Handles all commands, default is "show"
-	*/
-	public function executeCommand()
-	{
-		/** @var ilAccessHandler $ilAccess */
-		/** @var ilErrorHandling $ilErr */
-		global $ilAccess, $ilErr, $lng;
-
-		if (!$ilAccess->checkAccess('write','',$this->testObj->getRefId()))
-		{
-            ilUtil::sendFailure($lng->txt("permission_denied"), true);
-            ilUtil::redirect("goto.php?target=tst_".$this->testObj->getRefId());
-		}
-		elseif (!$this->plugin->checkPlayerActive())
-        {
-            ilUtil::sendFailure($lng->txt("player_plugin_not_active"), true);
-            ilUtil::redirect("goto.php?target=tst_".$this->testObj->getRefId());
+    public function executeCommand()
+    {
+        if (!$this->plugin->checkPlayerActive()) {
+            $this->handleFailure($this->lng->txt("player_plugin_not_active"));
         }
 
-		$this->ctrl->saveParameter($this, 'ref_id');
-		$cmd = $this->ctrl->getCmd('showAdaptations');
+        // initialize common request variables
+        $this->ref_id = $this->requestInteger('ref_id') ?? 0;
+        $this->active_id = $this->requestInteger('active_id') ?? 0;
+        $this->user_id = $this->requestInteger('user_id');
+        $this->plays = $this->requestInteger('plays');
 
-		switch ($cmd)
-		{
-			case "showAdaptations":
-            case "selectParticipant":
-            case "selectMedium":
-            case "editLimit":
-            case "confirmDeleteLimit":
-				if ($this->prepareOutput())
-				{
-					$this->$cmd();
-				}
+        // page and medium file are selected together
+        $this->page_and_file = $this->requestString('page_and_file');
+        if ($this->page_and_file !== null) {
+            $parts = explode('_', $this->page_and_file);
+            if (count($parts) == 2) {
+                $this->page_id = (int) $parts[0];
+                $this->file_id = (string) $parts[1];
+            }
+        }
+
+        if (!$this->access->checkAccess('write', '', $this->ref_id, 'tst')) {
+            $this->handleFailure($this->lng->txt("permission_denied"));
+        }
+
+        $this->test = new ilObjTest($this->ref_id);
+        $this->participants->load($this->test->getTestId());
+
+        $this->ctrl->saveParameter($this, 'ref_id');
+        $cmd = $this->ctrl->getCmd('showAdaptations');
+
+        switch ($cmd) {
+            case 'showAdaptations':
+            case 'selectParticipant':
+            case 'selectMedium':
+            case 'editLimit':
+            case 'confirmDeleteLimit':
+                $this->prepareOutput();
+                $this->$cmd();
                 break;
-			case "saveLimit":
-            case "deleteLimit":
-				$this->$cmd();
-				break;
 
-			default:
-                ilUtil::sendFailure($lng->txt("permission_denied"), true);
-                ilUtil::redirect("goto.php?target=tst_".$this->testObj->getRefId());
-				break;
-		}
-	}
+            case 'saveLimit':
+            case 'deleteLimit':
+                $this->$cmd();
+                break;
 
-	/**
-	 * Get the plugin object
-	 * @return ilUILimitedMediaControlPlugin|null
-	 */
-	public function getPlugin()
-	{
-		return $this->plugin;
-	}
+            default:
+                $this->handleFailure($this->lng->txt("permission_denied"));
+                break;
+        }
+    }
 
-	/**
-	 * Get the test object id (needed for table filter)
-	 * @return int
-	 */
-	public function getId()
-	{
-		return $this->testObj->getId();
-	}
+    private function handleFailure(string $message): void
+    {
+        $this->tpl->setOnScreenMessage(Gti::MESSAGE_TYPE_FAILURE, $message, true);
+        $this->ctrl->redirectToURL(ilLink::_getLink($this->ref_id));
+    }
 
     /**
      * Format the name to be displayed for a participant
-     * @param int $a_active_id
-     * @param bool $a_add_login
-     * @return string
      */
-    public function formatParticipantName($a_active_id)
+    public function formatParticipantName(?int $active_id): string
     {
-        if (empty($a_active_id))
-        {
+        if (empty($active_id)) {
             return $this->plugin->txt('all_participants');
         }
-        $name = $this->pdataObj->getFormatedFullnameByActiveId($a_active_id);
-        $data = $this->pdataObj->getUserDataByActiveId($a_active_id);
-        $name .= ' ('.$data['login'].')';
+        $name = $this->participants->getFormatedFullnameByActiveId($active_id);
+        $data = $this->participants->getUserDataByActiveId($active_id);
+        $name .= ' (' . $data['login'] ?? 'anonymous' . ')';
 
         return $name;
     }
 
     /**
-     * Format the titles of the question and the medium to fint into a select box
-     * @param string $a_question_title
-     * @param string $a_medium_title
-     * @return string
+     * Format the titles of the question and the medium to fit into a select box
      */
-    public function formatQuestionMediumTitle($a_question_title, $a_medium_title)
+    public function formatQuestionMediumTitle(string $question_title, string $medium_title): string
     {
-        if (empty($a_question_title) && empty($a_medium_title))
-        {
+        if (empty($question_title) && empty($medium_title)) {
             return $this->plugin->txt('all_media');
         }
-        return ilUtil::shortenText($a_question_title, 40, true)
+        return ilStr::shortenText($question_title, 0, 40)
             . " / "
-            . ilUtil::shortenText($a_medium_title, 40, true);
+            . ilStr::shortenText($medium_title, 0, 40);
     }
 
     /**
-	 * Prepare the test header, tabs etc.
-	 */
-	protected function prepareOutput()
-	{
-		/** @var ilLocatorGUI $ilLocator */
-		/** @var ilLanguage $lng */
-		global $ilLocator, $lng;
+     * Prepare the test header, tabs etc.
+     */
+    private function prepareOutput(): void
+    {
+        $this->locator->addRepositoryItems($this->test->getRefId());
+        $this->locator->addItem($this->test->getTitle(), $this->ctrl->getLinkTargetByClass('ilObjTestGUI'));
 
-		$this->ctrl->setParameterByClass('ilObjTestGUI', 'ref_id',  $this->testObj->getRefId());
-		$ilLocator->addRepositoryItems($this->testObj->getRefId());
-		$ilLocator->addItem($this->testObj->getTitle(),$this->ctrl->getLinkTargetByClass('ilObjTestGUI'));
-
-		$this->tpl->getStandardTemplate();
-		$this->tpl->setLocator();
-		$this->tpl->setTitle($this->testObj->getPresentationTitle());
-		$this->tpl->setDescription($this->testObj->getLongDescription());
-		$this->tpl->setTitleIcon(ilObject::_getIcon('', 'big', 'tst'), $lng->txt('obj_tst'));
-		$this->tpl->addCss($this->plugin->getStyleSheetLocation('exte_stat.css'));
-
-		if ($this->testObj->isDynamicTest())
-		{
-			ilUtil::sendFailure($this->plugin->txt('not_for_dynamic_test'));
-			$this->tpl->show();
-			return false;
-		}
-
-		return true;
-	}
-
-	/**
-	 * Show the limit adaptations
-	 */
-	protected function showAdaptations()
-	{
-		$this->setToolbar();
-
-		/** @var   $tableGUI */
-		$this->plugin->includeClass('class.ilUILimitedMediaControlTableGUI.php');
-		$tableGUI = new ilUILimitedMediaControlTableGUI($this, 'showAdaptations');
-		$tableGUI->prepareData($this->testObj, $this->pdataObj);
-
-		ilUtil::sendInfo($this->plugin->txt('remark_media').'<br />'. $this->plugin->txt('remark_user'));
-		$this->tpl->setContent($tableGUI->getHTML());
-		$this->tpl->show();
-	}
+        $this->tpl->setLocator();
+        $this->tpl->setTitle($this->test->getPresentationTitle());
+        $this->tpl->setDescription($this->test->getLongDescription());
+        $this->tpl->setTitleIcon(ilObject::_getIcon($this->test->getId(), 'big', 'tst'), $this->lng->txt('obj_tst'));
+    }
 
     /**
-     * Select the participant to adapt
+     * Show the adaptations of playing limits
      */
-	protected function selectParticipant()
+    private function showAdaptations()
     {
-        global $ilDB;
+        $button = ilLinkButton::getInstance();
+        $button->setUrl($this->ctrl->getLinkTarget($this, 'selectParticipant'));
+        $button->setCaption($this->plugin->txt('new_adaptation'), false);
+        $this->toolbar->addButtonInstance($button);
 
-        $options = array('0' => $this->plugin->txt('all_participants'));
-        foreach ($this->pdataObj->getActiveIds() as $active_id)
-        {
+        $table_gui = new ilUILimitedMediaControlTableGUI($this, 'showAdaptations');
+        $table_gui->prepareData($this->test, $this->participants);
+
+        $this->tpl->setOnScreenMessage(Gti::MESSAGE_TYPE_INFO, $this->plugin->txt('remark_media')
+            . '<br />' . $this->plugin->txt('remark_user'));
+        $this->tpl->setContent($table_gui->getHTML());
+        $this->tpl->printToStdout();
+    }
+
+    /**
+     * Select the participant for which the adaptations should be limited
+     */
+    private function selectParticipant()
+    {
+        $options = ['0' => $this->plugin->txt('all_participants')];
+        foreach ($this->participants->getActiveIds() as $active_id) {
             $options[$active_id] = $this->formatParticipantName($active_id);
         }
 
-        require_once('Services/Form/classes/class.ilPropertyFormGUI.php');
-        $form = new ilPropertyFormGUI();
-        $form->setFormAction($this->ctrl->getFormAction($this, 'showAdaptations'));
-        $form->setTitle($this->plugin->txt('select_participant'));
+        $factory = $this->ui_factory->input()->field();
+        $fields = [
+            'title' => $factory->section([], $this->plugin->txt('select_participant')),
+            'active_id' => $factory->select($this->plugin->txt('participant'), $options)
+        ];
 
-        $sel = new ilSelectInputGUI($this->plugin->txt('participant'), 'active_id');
-        $sel->setOptions($options);
-        $form->addItem($sel);
+        $form = $this->ui_factory->input()->container()->form()->standard(
+            $this->ctrl->getFormAction($this, 'selectMedium'),
+            $fields
+        )
+            ->withSubmitCaption($this->lng->txt('continue'));
 
-        $form->addCommandButton('selectMedium', $this->lng->txt('continue'));
-        $form->addCommandButton('showAdaptations', $this->lng->txt('cancel'));
-
-        $this->tpl->setContent($form->getHTML());
-        $this->tpl->show();
+        $this->tpl->setContent($this->ui_renderer->render($form));
+        $this->tpl->printToStdout();
     }
 
     /**
      * Select the Medium
      */
-    protected function selectMedium()
+    private function selectMedium()
     {
-        global $ilDB;
-
-        $active_id = (int) $_REQUEST['active_id'];
-
-        // in a random text, only 'all media' can be selected for 'all participants'
-        if ($active_id == 0 && $this->testObj->isRandomTest())
-        {
-            $this->ctrl->setParameter($this, 'user_id', 0);
-            $this->ctrl->setParameter($this, 'page_mob_id', '');
+        if ($this->active_id !== 0) {
+            $this->user_id = $this->participants->getUserIdByActiveId($this->active_id);
+            $this->ctrl->setParameter($this, 'user_id', $this->user_id);
+        } elseif ($this->test->isRandomTest()) {
+            // in a random text, only 'all media' can be selected for 'all participants'
             $this->ctrl->redirect($this, 'editLimit');
         }
 
-        $question_ids = array();
-        if ($this->testObj->isFixedTest())
-        {
-            $question_ids = $this->testObj->getQuestions();
-        }
-        elseif ($this->testObj->isRandomTest())
-        {
-            // needed by getQuestionsOfTest
-            include_once('Modules/Test/classes/class.ilTestRandomQuestionSetConfig.php');
-            foreach($this->testObj->getQuestionsOfTest($active_id) as $qdata)
-            {
-                $question_ids[] = $qdata['question_fi'];
+        $question_ids = [];
+        if ($this->test->isFixedTest()) {
+            $question_ids = $this->test->getQuestions();
+        } elseif ($this->test->isRandomTest()) {
+            foreach ($this->test->getQuestionsOfTest($this->active_id) as $data) {
+                $question_ids[] = $data['question_fi'] ?? 0;
             }
         }
+        $found = $this->medium_repo->findLimitedMedia($question_ids);
+        $options = ['' => $this->plugin->txt('all_media')];
 
-        $found = $this->plugin->findLimitedMedia($question_ids);
-        $options = array('' => $this->plugin->txt('all_media'));
-        foreach ($found as $data)
-        {
-            $options[$data['page_id'].'_'.$data['mob_id']] = $this->formatQuestionMediumTitle(
-                assQuestion::_getTitle($data['page_id']), $data['title']);
+        /** @var \ILIAS\Plugin\LimitedMediaPlayer\Medium $medium */
+        foreach ($found as $medium) {
+            $options[$medium->getPageId() . '_' . $medium->getFileId()] = $this->formatQuestionMediumTitle(
+                assQuestion::_getTitle($medium->getPageId()),
+                $medium->getTitle()
+            );
         }
 
-        require_once('Services/Form/classes/class.ilPropertyFormGUI.php');
-        $form = new ilPropertyFormGUI();
-        $form->setFormAction($this->ctrl->getFormAction($this, 'showAdaptations'));
-        $form->setTitle($this->plugin->txt('select_medium'));
+        $factory = $this->ui_factory->input()->field();
+        $fields = [
+            'title' => $factory->section(
+                [],
+                $this->plugin->txt('select_medium'),
+                $this->formatParticipantName($this->active_id)
+            ),
+            'page_and_file' => $factory->select($this->plugin->txt('question_medium'), $options)
+        ];
 
-        $nam = new ilNonEditableValueGUI($this->plugin->txt('participant'));
-        $nam->setValue($this->formatParticipantName($active_id));
-        $form->addItem($nam);
+        $form = $this->ui_factory->input()->container()->form()->standard(
+            $this->ctrl->getFormAction($this, 'editLimit'),
+            $fields
+        )
+                ->withSubmitCaption($this->lng->txt('continue'));
 
-        $usr = new ilHiddenInputGUI('user_id');
-        $usr->setValue($active_id == 0 ? 0 : $this->pdataObj->getUserIdByActiveId($active_id));
-        $form->addItem($usr);
-
-        $sel = new ilSelectInputGUI($this->plugin->txt('question_medium'), 'page_mob_id');
-        $sel->setOptions($options);
-        $form->addItem($sel);
-
-        $form->addCommandButton('editLimit', $this->lng->txt('continue'));
-        $form->addCommandButton('showAdaptations', $this->lng->txt('cancel'));
-
-        $this->tpl->setContent($form->getHTML());
-        $this->tpl->show();
+        $this->tpl->setContent($this->ui_renderer->render($form));
+        $this->tpl->printToStdout();
     }
 
 
-    /**
-     * Edit the limit for the medium
-     */
-    protected function editLimit()
+    private function editLimit()
     {
-        $user_id = (int) $_REQUEST['user_id'];
-        $parts = explode('_', (string) $_REQUEST['page_mob_id']);
-        $page_id = (int) $parts[0];
-        $mob_id = (int) $parts[1];
-        $active_id = (int) $this->pdataObj->getActiveIdByUserId($user_id);
-
-        if ($page_id != 0 && $mob_id != 0)
-        {
-            $found = (array) $this->plugin->findLimitedMedia((array) $page_id, $mob_id);
-            $data = $found[0];
-            $defined_limit = $data['limit'];
-            $title = $this->formatQuestionMediumTitle(assQuestion::_getTitle($page_id), $data['title']);
+        if ($this->user_id !== null) {
+            $this->ctrl->saveParameter($this, 'user_id');
         }
-        else
-        {
-            $defined_limit = null;
-            $title = $this->plugin->txt('all_media');
-        }
+        $this->ctrl->saveParameter($this, 'page_and_file');
 
-        foreach ($this->plugin->getTestLimits($this->testObj->getId()) as $limitObj)
-        {
-            if ($limitObj->getPageId() == $page_id
-                && $limitObj->getMobId() == $mob_id
-                && $limitObj->getUserId() == $user_id)
-            {
-                $custom_limit = $limitObj->getLimit();
-                break;
+        $medium_title = $this->plugin->txt('all_media');
+        $default_plays = null;
+        if ($this->page_id !== null && $this->file_id !== null) {
+            $found = $this->medium_repo->findLimitedMedia((array) $this->page_id, $this->file_id);
+            if (!empty($found)) {
+                /** @var \ILIAS\Plugin\LimitedMediaPlayer\Medium $medium */
+                $medium = $found[0];
+                $default_plays = $medium->getLimitPlays();
+                $medium_title = $this->formatQuestionMediumTitle(assQuestion::_getTitle($this->page_id), $medium->getTitle());
             }
         }
 
-        require_once('Services/Form/classes/class.ilPropertyFormGUI.php');
-        $form = new ilPropertyFormGUI();
-        $form->setFormAction($this->ctrl->getFormAction($this, 'showAdaptations'));
-        $form->setTitle($this->plugin->txt('adapt_limit'));
+        /** @var \ILIAS\Plugin\LimitedMediaPlayer\Limit $limit */
+        $limit = $this->limit_repo->get($this->test->getId(), $this->page_id, $this->file_id, $this->user_id);
 
-        $nam = new ilNonEditableValueGUI($this->plugin->txt('participant'));
-        $nam->setValue($this->formatParticipantName($active_id));
-        $form->addItem($nam);
+        $factory = $this->ui_factory->input()->field();
+        $fields = [
+            'title' => $factory->section(
+                [],
+                $this->plugin->txt('adapt_limit'),
+                implode('<br />', [
+                    $this->formatParticipantName($this->active_id),
+                    $this->plugin->txt('question_medium') . ': ' . $medium_title,
+                    $this->plugin->txt('limit_standard') . ': ' . $default_plays ?? $this->plugin->txt('unlimited'),
+                ]),
+            ),
+            'plays' => $factory->numeric($this->plugin->txt('limit_custom'))->withValue($limit->getPlays())
+        ];
 
-        $usr = new ilHiddenInputGUI('user_id');
-        $usr->setValue($user_id);
-        $form->addItem($usr);
+        $form = $this->ui_factory->input()->container()->form()->standard($this->ctrl->getFormAction($this, 'editLimit'), $fields)
+            ->withSubmitCaption($this->lng->txt('continue'));
 
-        $tit = new ilNonEditableValueGUI($this->plugin->txt('question_medium'));
-        $tit->setValue($title);
-        $form->addItem($tit);
-
-        $pgm = new ilHiddenInputGUI('page_mob_id');
-        $pgm->setValue($page_id.'_'.$mob_id);
-        $form->addItem($pgm);
-
-        if (isset($defined_limit))
-        {
-            $def = new ilNonEditableValueGUI($this->plugin->txt('limit_standard'));
-            $def->setValue($defined_limit);
-            $form->addItem($def);
-        }
-
-        $lim = new ilNumberInputGUI($this->plugin->txt('limit_custom'), 'limit');
-        $lim->setDecimals(0);
-        $lim->setSize(2);
-        $lim->setValue($custom_limit);
-        $form->addItem($lim);
-
-        $form->addCommandButton('saveLimit', $this->lng->txt('save'));
-        $form->addCommandButton('showAdaptations', $this->lng->txt('cancel'));
-
-        $this->tpl->setContent($form->getHTML());
-        $this->tpl->show();
+        $this->tpl->setContent($this->ui_renderer->render($form));
+        $this->tpl->printToStdout();
     }
 
-    /**
-     * Save an edited Limit
-     */
-    protected function saveLimit()
+    private function saveLimit()
     {
-        $user_id = (int) $_REQUEST['user_id'];
-        $parts = explode('_', (string) $_REQUEST['page_mob_id']);
-        $page_id = (int) $parts[0];
-        $mob_id = (int) $parts[1];
-        $limit = (int) $_REQUEST['limit'];
+        $limit = $this->limit_repo->get($this->test->getId(), $this->page_id, $this->file_id, $this->user_id);
+        $limit->setPlays($this->plays);
+        $this->limit_repo->save($limit);
 
-        $this->plugin->saveLimit($this->testObj->getId(), $page_id, $mob_id, $user_id, $limit);
-        ilUtil::sendSuccess($this->plugin->txt('limit_saved'), true);
+        $this->tpl->setOnScreenMessage(Gti::MESSAGE_TYPE_SUCCESS, $this->plugin->txt('limit_saved'), true);
         $this->ctrl->redirect($this, 'showAdaptations');
     }
 
-    /**
-     * Confirm the deletion of a limit
-     */
-    protected function confirmDeleteLimit()
+    private function confirmDeleteLimit()
     {
-        $user_id = (int) $_REQUEST['user_id'];
-        $active_id = (int) $this->pdataObj->getActiveIdByUserId($user_id);
-        $parts = explode('_', (string) $_REQUEST['page_mob_id']);
-        $page_id = (int) $parts[0];
-        $mob_id = (int) $parts[1];
+        if ($this->user_id !== null) {
+            $this->ctrl->saveParameter($this, 'user_id');
+        }
+        $this->ctrl->saveParameter($this, 'page_and_file');
 
-        $uname = $this->formatParticipantName($active_id);
-        $mtitle = $this->formatQuestionMediumTitle(
-            assQuestion::_getTitle($page_id),
-            ilObjMediaObject::_lookupTitle($mob_id)
-        );
+        $active_id = $this->participants->getActiveIdByUserId($this->user_id ?? 0);
+        $user_name = $this->formatParticipantName($this->active_id);
 
-        require_once('Services/Utilities/classes/class.ilConfirmationGUI.php');
-        $gui = new ilConfirmationGUI;
+        $medium_title = $this->plugin->txt('all_media');
+        if ($this->page_id !== null && $this->file_id !== null) {
+            $found = $this->medium_repo->findLimitedMedia((array) $this->page_id, $this->file_id);
+            if (!empty($found)) {
+                /** @var \ILIAS\Plugin\LimitedMediaPlayer\Medium $medium */
+                $medium = $found[0];
+                $medium_title = $this->formatQuestionMediumTitle(assQuestion::_getTitle((int) $this->page_id), $medium->getTitle());
+            }
+        }
+
+        $gui = new ilConfirmationGUI();
         $gui->setFormAction($this->ctrl->getFormAction($this, "showAdaptations"));
-        $gui->addHiddenItem('user_id', $user_id);
-        $gui->addHiddenItem('page_mob_id', $page_id . '_' . $mob_id);
         $gui->setHeaderText($this->plugin->txt('confirm_delete_limit'));
-        $gui->addItem('','', $this->plugin->txt('participant').': '. $uname);
-        $gui->addItem('','', $this->plugin->txt('question_medium').': '. $mtitle);
+        $gui->addItem('', '', $this->plugin->txt('participant') . ': ' . $user_name);
+        $gui->addItem('', '', $this->plugin->txt('question_medium') . ': ' . $medium_title);
         $gui->addButton($this->lng->txt('delete'), 'deleteLimit');
         $gui->addButton($this->lng->txt('cancel'), 'showAdaptations');
 
         $this->tpl->setContent($gui->getHTML());
-        $this->tpl->show();
+        $this->tpl->printToStdout();
     }
 
-
-    /**
-     * Delete a Limit
-     */
-    protected function deleteLimit()
+    private function deleteLimit()
     {
-        $user_id = (int) $_REQUEST['user_id'];
-        $parts = explode('_', (string) $_REQUEST['page_mob_id']);
-        $page_id = (int) $parts[0];
-        $mob_id = (int) $parts[1];
+        $limit = $this->limit_repo->get($this->test->getId(), $this->page_id, $this->file_id, $this->user_id);
+        $this->limit_repo->delete($limit);
 
-        $this->plugin->deleteLimit($this->testObj->getId(), $page_id, $mob_id, $user_id);
-        ilUtil::sendSuccess($this->plugin->txt('limit_deleted'), true);
+        $this->tpl->setOnScreenMessage(Gti::MESSAGE_TYPE_SUCCESS, $this->plugin->txt('limit_deleted'), true);
         $this->ctrl->redirect($this, 'showAdaptations');
     }
 
+    private function requestInteger(string $key): ?int
+    {
+        if ($this->http->wrapper()->post()->has($key)) {
+            return $this->http->wrapper()->post()->retrieve($key, $this->refinery->kindlyTo()->int());
+        }
+        if ($this->http->wrapper()->query()->has($key)) {
+            return $this->http->wrapper()->post()->retrieve($key, $this->refinery->kindlyTo()->int());
+        }
+        return null;
+    }
 
-    /**
-	 * Set the Toolbar
-	 */
-	protected function setToolbar()
-	{
-		/** @var ilToolbarGUI $ilToolbar */
-		global $ilToolbar;
-
-		require_once 'Services/UIComponent/Button/classes/class.ilLinkButton.php';
-		$button = ilLinkButton::getInstance();
-		$button->setUrl($this->ctrl->getLinkTarget($this, 'selectParticipant'));
-		$button->setCaption($this->plugin->txt('new_adaptation'), false);
-		$button->getOmitPreventDoubleSubmission();
-		$ilToolbar->addButtonInstance($button);
+    private function requestString(string $key): ?string
+    {
+        if ($this->http->wrapper()->post()->has($key)) {
+            return $this->http->wrapper()->post()->retrieve($key, $this->refinery->kindlyTo()->string());
+        }
+        if ($this->http->wrapper()->query()->has($key)) {
+            return $this->http->wrapper()->post()->retrieve($key, $this->refinery->kindlyTo()->string());
+        }
+        return null;
     }
 }
-?>
