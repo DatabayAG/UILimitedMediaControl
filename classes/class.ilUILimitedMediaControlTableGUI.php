@@ -1,40 +1,23 @@
 <?php
-// Copyright (c) 2017 Institut fuer Lern-Innovation, Friedrich-Alexander-Universitaet Erlangen-Nuernberg, GPLv3, see LICENSE
 
-include_once('./Services/Table/classes/class.ilTable2GUI.php');
+declare(strict_types=1);
 
 class ilUILimitedMediaControlTableGUI extends ilTable2GUI
 {
-	/**
-	 * @var ilUILimitedMediaControlGUI $parent_obj
-	 */
-	protected ?object $parent_obj;
+    /** @var ilUILimitedMediaControlGUI $parent_obj */
+    protected ?object $parent_obj;
+    protected string $parent_cmd;
+    protected ilUILimitedMediaControlPlugin $plugin;
 
-	/**
-	 * @var string $parent_cmd
-	 */
-	protected string $parent_cmd;
+    public function __construct(?object $a_parent_obj, string $a_parent_cmd)
+    {
+        global $DIC;
 
-	/**
-	 * @var ilUILimitedMediaControlPlugin|null
-	 */
-	protected $plugin;
-
-
-	/**
-	 * ilExteStatTableGUI constructor.
-	 * @param object	$a_parent_obj
-	 * @param string 	$a_parent_cmd
-	 */
-	public function __construct($a_parent_obj, $a_parent_cmd)
-	{
-		global $lng, $ilCtrl;
-
-		$this->lng = $lng;
-		$this->ctrl = $ilCtrl;
-		$this->parent_obj = $a_parent_obj;
-		$this->parent_cmd = $a_parent_cmd;
-		$this->plugin = $a_parent_obj->getPlugin();
+        $this->lng = $DIC->language();
+        $this->ctrl = $DIC->ctrl();
+        $this->parent_obj = $a_parent_obj;
+        $this->parent_cmd = $a_parent_cmd;
+        $this->plugin = $DIC['component.factory']->getPlugin('limpco');
 
         $this->setId('ilUILimitedMediaControl');
         $this->setPrefix('ilUILimitedMediaControl');
@@ -44,9 +27,9 @@ class ilUILimitedMediaControlTableGUI extends ilTable2GUI
         $this->setFormName('test_overview');
         $this->setTitle($this->plugin->txt('adapted_media_limits'));
         $this->setStyle('table', 'fullwidth');
-        $this->addColumn($this->lng->txt("user"),'name');
-        $this->addColumn($this->plugin->txt("question_medium"),'medium');
-        $this->addColumn($this->plugin->txt('limit'),'limit');
+        $this->addColumn($this->lng->txt("user"), 'name');
+        $this->addColumn($this->plugin->txt("question_medium"), 'medium');
+        $this->addColumn($this->plugin->txt('limit'), 'limit');
         $this->addColumn($this->lng->txt('actions'));
 
         $this->setRowTemplate("tpl.il_ui_limited_media_control_row.html", $this->plugin->getDirectory());
@@ -57,36 +40,32 @@ class ilUILimitedMediaControlTableGUI extends ilTable2GUI
 
         $this->setEnableNumInfo(false);
         $this->setExternalSegmentation(true);
-	}
+    }
 
     /**
-     * Prepare the data to be shown
-     * @param ilObjTest $testObj
-     * @param ilTestParticipantData $pdataObj
+     * @var \ILIAS\Plugin\LimitedMediaPlayer\Medium[] $media
+     * @var \ILIAS\Plugin\LimitedMediaPlayer\Limit[] $limits
      */
-	public function prepareData($testObj, $pdataObj)
+    public function prepareData(ilObjTest $test, ilTestParticipantData $participants, array $media, array $limits)
     {
-        $rows = array();
-        foreach ($this->plugin->getTestLimits($testObj->getId()) as $limit)
-        {
+        $rows = [];
+        foreach ($limits as $limit) {
             $row = array();
             $row['limit_obj'] = $limit;
 
-            $active_id = (int) $pdataObj->getActiveIdByUserId($limit->getUserId());
+            $active_id = (int) $participants->getActiveIdByUserId($limit->getUserId());
             $row['name'] = $this->parent_obj->formatParticipantName($active_id);
 
-            if ($limit->getPageId() == 0 || $limit->getMobId() == 0)
-            {
+            if ($limit->getMediumKey() === null) {
                 $row['medium'] = $this->plugin->txt('all_media');
-            }
-            else
-            {
+            } else {
+                $medium = $media[$limit->getMediumKey()] ?? null;
                 $row['medium'] = $this->parent_obj->formatQuestionMediumTitle(
                     assQuestion::_getTitle($limit->getPageId()),
-                    ilObjMediaObject::_lookupTitle($limit->getMobId())
+                    $medium ? $medium->getTitle() : ''
                 );
             }
-            $row['limit'] = $limit->getLimit();
+            $row['limit'] = $limit->getPlays();
             $rows[] = $row;
         }
 
@@ -95,22 +74,27 @@ class ilUILimitedMediaControlTableGUI extends ilTable2GUI
 
     protected function fillRow(array $a_set): void
     {
-        /** @var ilLimitedMediaPlayerLimit $limit */
+        /** @var \ILIAS\Plugin\LimitedMediaPlayer\Limit $limit */
         $limit = $a_set['limit_obj'];
 
         // prepare action menu
-        include_once './Services/UIComponent/AdvancedSelectionList/classes/class.ilAdvancedSelectionListGUI.php';
         $list = new ilAdvancedSelectionListGUI();
         $list->setSelectionHeaderClass('small');
         $list->setItemLinkClass('small');
-        $list->setId('actl_'. rand(0, 999999));
+        $list->setId('actl_' . rand(0, 999999));
         $list->setListTitle($this->lng->txt('actions'));
 
-        $this->ctrl->setParameter($this->parent_obj, 'user_id', $limit->getUserId());
-        $this->ctrl->setParameter($this->parent_obj, 'page_mob_id', $limit->getPageId().'_' . $limit->getMobId());
+        $this->ctrl->clearParameters($this->parent_obj);
+        $this->ctrl->saveParameter($this->parent_obj, 'ref_id');
+        if ($limit->getUserId() !== null) {
+            $this->ctrl->setParameter($this->parent_obj, 'user_id', $limit->getUserId());
+        }
+        if ($limit->getMediumKey() !== null) {
+            $this->ctrl->setParameter($this->parent_obj, 'medium_key', $limit->getMediumKey());
+        }
 
-        $list->addItem($this->lng->txt('edit'), '', $this->ctrl->getLinkTarget($this->parent_obj,'editLimit'));
-        $list->addItem($this->lng->txt('delete'), '', $this->ctrl->getLinkTarget($this->parent_obj,'confirmDeleteLimit'));
+        $list->addItem($this->lng->txt('edit'), '', $this->ctrl->getLinkTarget($this->parent_obj, 'editLimit'));
+        $list->addItem($this->lng->txt('delete'), '', $this->ctrl->getLinkTarget($this->parent_obj, 'confirmDeleteLimit'));
 
         $this->tpl->setVariable('NAME', $a_set['name']);
         $this->tpl->setVariable('MEDIUM', $a_set['medium']);
