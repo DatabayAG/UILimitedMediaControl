@@ -2,12 +2,15 @@
 
 declare(strict_types=1);
 
+use ILIAS\TestQuestionPool\QuestionInfoService;
+
 class ilUILimitedMediaControlTableGUI extends ilTable2GUI
 {
     /** @var ilUILimitedMediaControlGUI $parent_obj */
     protected ?object $parent_obj;
     protected string $parent_cmd;
-    protected ilUILimitedMediaControlPlugin $plugin;
+    private ilUILimitedMediaControlPlugin $plugin;
+    private QuestionInfoService $question_info;
 
     public function __construct(?object $a_parent_obj, string $a_parent_cmd)
     {
@@ -18,6 +21,7 @@ class ilUILimitedMediaControlTableGUI extends ilTable2GUI
         $this->parent_obj = $a_parent_obj;
         $this->parent_cmd = $a_parent_cmd;
         $this->plugin = $DIC['component.factory']->getPlugin('limpco');
+        $this->question_info = new QuestionInfoService($DIC->database(), $DIC['component.factory'], $DIC->language());
 
         $this->setId('ilUILimitedMediaControl');
         $this->setPrefix('ilUILimitedMediaControl');
@@ -61,7 +65,7 @@ class ilUILimitedMediaControlTableGUI extends ilTable2GUI
             } else {
                 $medium = $media[$limit->getMediumKey()] ?? null;
                 $row['medium'] = $this->parent_obj->formatQuestionMediumTitle(
-                    assQuestion::_getTitle($limit->getPageId()),
+                    $this->question_info->getQuestionTitle($limit->getPageId()),
                     $medium ? $medium->getTitle() : ''
                 );
             }

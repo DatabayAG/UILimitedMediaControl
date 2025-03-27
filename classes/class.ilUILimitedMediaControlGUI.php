@@ -7,6 +7,7 @@ use ILIAS\HTTP\Services as HttpServices;
 use ILIAS\Refinery\Factory as Refinery;
 use ILIAS\UI\Factory as UiFactory;
 use ILIAS\UI\Renderer as UiRenderer;
+use ILIAS\TestQuestionPool\QuestionInfoService;
 
 /**
  * @ilCtrl_IsCalledBy ilUILimitedMediaControlGUI: ilUIPluginRouterGUI
@@ -48,6 +49,7 @@ class ilUILimitedMediaControlGUI
     private ?string $medium_key = null;
     private ?int $page_id = null;
     private ?string $file_id = null;
+    private QuestionInfoService $question_info;
 
     public function __construct()
     {
@@ -72,6 +74,7 @@ class ilUILimitedMediaControlGUI
         $this->limit_repo = $this->player_plugin->factory()->limitRepo();
 
         $this->participants = new ilTestParticipantData($DIC->database(), $DIC->language());
+        $this->question_info = new QuestionInfoService($DIC->database(), $DIC['component.factory'], $DIC->language());
     }
 
     public function executeCommand()
@@ -197,10 +200,10 @@ class ilUILimitedMediaControlGUI
             'active_id' => $factory->select($this->plugin->txt('participant'), $options)
         ];
         $sections = [
-            'general' =>  $factory->section($fields, $this->plugin->txt('select_participant'))
+            'general' => $factory->section($fields, $this->plugin->txt('select_participant'))
         ];
         $form = $this->ui_factory->input()->container()->form()->standard('#', $sections)
-             ->withSubmitCaption($this->lng->txt('continue'));
+             ->withSubmitLabel($this->lng->txt('continue'));
 
         if ($this->http->request()->getMethod() === 'POST') {
             $form = $form->withRequest($this->http->request());
@@ -229,7 +232,7 @@ class ilUILimitedMediaControlGUI
         /** @var \ILIAS\Plugin\LimitedMediaPlayer\Medium $medium */
         foreach ($media as $medium) {
             $options[$medium->getKey()] = $this->formatQuestionMediumTitle(
-                assQuestion::_getTitle($medium->getPageId()),
+                $this->question_info->getQuestionTitle($medium->getPageId()),
                 $medium->getTitle()
             );
         }
@@ -239,14 +242,14 @@ class ilUILimitedMediaControlGUI
             'medium_key' => $factory->select($this->plugin->txt('question_medium'), $options)
         ];
         $sections = [
-            'general' =>  $factory->section(
+            'general' => $factory->section(
                 $fields,
                 $this->plugin->txt('select_medium'),
                 $this->formatParticipantName($this->active_id)
             )
         ];
         $form = $this->ui_factory->input()->container()->form()->standard('#', $sections)
-                                 ->withSubmitCaption($this->lng->txt('continue'));
+                                 ->withSubmitLabel($this->lng->txt('continue'));
 
         if ($this->http->request()->getMethod() === 'POST') {
             $form = $form->withRequest($this->http->request());
@@ -268,7 +271,10 @@ class ilUILimitedMediaControlGUI
 
         $medium = $this->medium_repo->getMedium($this->page_id, $this->file_id);
         if ($medium !== null) {
-            $medium_title = $this->formatQuestionMediumTitle(assQuestion::_getTitle((int) $this->page_id), $medium->getTitle());
+            $medium_title = $this->formatQuestionMediumTitle(
+                $this->question_info->getQuestionTitle((int) $this->page_id),
+                $medium->getTitle()
+            );
             $default_plays = $medium->getLimitPlays();
         } else {
             $medium_title = $this->plugin->txt('all_media');
@@ -295,7 +301,7 @@ class ilUILimitedMediaControlGUI
         ];
 
         $form = $this->ui_factory->input()->container()->form()->standard('#', $sections)
-                                 ->withSubmitCaption($this->lng->txt('continue'));
+                                 ->withSubmitLabel($this->lng->txt('continue'));
 
         if ($this->http->request()->getMethod() === 'POST') {
             $form = $form->withRequest($this->http->request());
@@ -331,7 +337,10 @@ class ilUILimitedMediaControlGUI
 
         $medium = $this->medium_repo->getMedium($this->page_id, $this->file_id);
         if ($medium !== null) {
-            $medium_title = $this->formatQuestionMediumTitle(assQuestion::_getTitle((int) $this->page_id), $medium->getTitle());
+            $medium_title = $this->formatQuestionMediumTitle(
+                $this->question_info->getQuestionTitle((int) $this->page_id),
+                $medium->getTitle()
+            );
         } else {
             $medium_title = $this->plugin->txt('all_media');
         }
