@@ -3,8 +3,8 @@
 
 $id = "limpco";
 
-$version = "3.0.0";
-$ilias_min_version = "9.7";
-$ilias_max_version = "9.999";
+$version = "4.0.0";
+$ilias_min_version = "10.2";
+$ilias_max_version = "10.999";
 $responsible = "Fred Neumann";
 $responsible_mail = "fneumann@databay.de";

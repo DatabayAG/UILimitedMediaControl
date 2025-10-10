@@ -23,8 +23,8 @@ class ilUILimitedMediaControlUIHookGUI extends ilUIHookPluginGUI
             $this->ctrl = $DIC->ctrl();
             $this->tabs = $DIC->tabs();
 
-            if (in_array($this->ctrl->getCmdClass(), [strtolower(ilTestParticipantsGUI::class),
-                                                      strtolower(ilTestParticipantsTableGUI::class)])) {
+            if (in_array($this->ctrl->getCmdClass(), [strtolower(ilObjTestGUI::class)])
+            && $this->ctrl->getCmd() == 'showQuestions') {
                 $this->ctrl->saveParameterByClass(ilUILimitedMediaControlGUI::class, 'ref_id');
 
                 $this->tabs->addSubTab(

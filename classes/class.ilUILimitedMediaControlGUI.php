@@ -7,7 +7,7 @@ use ILIAS\HTTP\Services as HttpServices;
 use ILIAS\Refinery\Factory as Refinery;
 use ILIAS\UI\Factory as UiFactory;
 use ILIAS\UI\Renderer as UiRenderer;
-use ILIAS\TestQuestionPool\QuestionInfoService;
+use ILIAS\TestQuestionPool\Questions\PublicInterface as Question;
 
 /**
  * @ilCtrl_IsCalledBy ilUILimitedMediaControlGUI: ilUIPluginRouterGUI
@@ -49,7 +49,7 @@ class ilUILimitedMediaControlGUI
     private ?string $medium_key = null;
     private ?int $page_id = null;
     private ?string $file_id = null;
-    private QuestionInfoService $question_info;
+    private Question $question_info;
 
     public function __construct()
     {
@@ -74,7 +74,7 @@ class ilUILimitedMediaControlGUI
         $this->limit_repo = $this->player_plugin->factory()->limitRepo();
 
         $this->participants = new ilTestParticipantData($DIC->database(), $DIC->language());
-        $this->question_info = new QuestionInfoService($DIC->database(), $DIC['component.factory'], $DIC->language());
+        $this->question_info =$DIC->testQuestion();
     }
 
     public function executeCommand()
@@ -232,7 +232,7 @@ class ilUILimitedMediaControlGUI
         /** @var \ILIAS\Plugin\LimitedMediaPlayer\Medium $medium */
         foreach ($media as $medium) {
             $options[$medium->getKey()] = $this->formatQuestionMediumTitle(
-                $this->question_info->getQuestionTitle($medium->getPageId()),
+                $this->question_info->getGeneralQuestionProperties($medium->getPageId())->getTitle(),
                 $medium->getTitle()
             );
         }
@@ -272,7 +272,7 @@ class ilUILimitedMediaControlGUI
         $medium = $this->medium_repo->getMedium($this->page_id, $this->file_id);
         if ($medium !== null) {
             $medium_title = $this->formatQuestionMediumTitle(
-                $this->question_info->getQuestionTitle((int) $this->page_id),
+                $this->question_info->getGeneralQuestionProperties((int) $this->page_id)->getTitle(),
                 $medium->getTitle()
             );
             $default_plays = $medium->getLimitPlays();
@@ -338,7 +338,7 @@ class ilUILimitedMediaControlGUI
         $medium = $this->medium_repo->getMedium($this->page_id, $this->file_id);
         if ($medium !== null) {
             $medium_title = $this->formatQuestionMediumTitle(
-                $this->question_info->getQuestionTitle((int) $this->page_id),
+                $this->question_info->getGeneralQuestionProperties((int) $this->page_id)->getTitle(),
                 $medium->getTitle()
             );
         } else {
